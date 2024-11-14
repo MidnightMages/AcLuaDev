@@ -1,3 +1,5 @@
+package AcLuaDev;
+
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
 
@@ -16,6 +18,8 @@ public class Main {
     private static LuaVM_RT startLuaVm(Path luaRootDir) {
         var rv = LuaVM.create().withStdLib();
         // todo inject globals, load main file, initialize readonly filesystem, run on new thread
+        var fs = new SandboxedFs();
+        fs.init(luaRootDir, null);
         return (LuaVM_RT)rv;
     }
 
