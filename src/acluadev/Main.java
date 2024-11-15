@@ -1,5 +1,6 @@
 package acluadev;
 
+import acluadev.fs.LuaFilesystem;
 import acluadev.fs.SandboxedFs;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
@@ -17,11 +18,13 @@ public class Main {
     }
 
     private static LuaVM_RT startLuaVm(Path luaRootDir) {
-        var rv = LuaVM.create().withStdLib();
-        // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         var fs = new SandboxedFs();
         fs.init(luaRootDir);
         var f = fs.getFile("/test.txt");
+        var rv = LuaVM.create().withStdLib();
+        var _G = rv.get_G();
+        _G.set("io", new LuaFilesystem(fs).getTable());
+        // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         return (LuaVM_RT)rv;
     }
 
