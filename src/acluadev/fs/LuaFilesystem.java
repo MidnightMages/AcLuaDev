@@ -10,20 +10,11 @@ public class LuaFilesystem {
         this.fs = fs;
     }
 
-    class LuaFsFile {
-
-        static LuaObject createAsTable(VirtualFile f){
-            var rv = LuaObject.table();
-            rv.add("read", LuaObject.of(AtomicLuaFunction.vaForManyResults()))
-            return rv;
-        }
-    }
-
     // https://www.lua.org/manual/5.4/manual.html#6.8
     public LuaObject getTable(){
         var rv = LuaObject.table();
         // TODO return a userdata filehandle table
-        rv.set("open", LuaObject.of(AtomicLuaFunction.forOneResult((vm, filename) -> null)));
+        rv.set("open", LuaObject.of(AtomicLuaFunction.forOneResult((vm, filename) -> LuaFsFile.createAsUserdata(fs.getFile(filename.asString())))));
         return rv;
     }
 }
