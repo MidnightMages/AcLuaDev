@@ -19,7 +19,8 @@ public class Main {
         var rv = LuaVM.create().withStdLib();
         // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         var fs = new SandboxedFs();
-        fs.init(luaRootDir, null);
+        fs.init(luaRootDir);
+        var f = fs.getFile("/test.txt");
         return (LuaVM_RT)rv;
     }
 

@@ -1,9 +1,5 @@
 package AcLuaDev;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class SandboxedFs {
@@ -15,28 +11,11 @@ public class SandboxedFs {
 
     }
 
-    public void init(Path path, DirectoryNode currentVirtualDir) {
-        try (var stream = Files.walk(path, 0)) {
-            stream.forEach(e -> {
-                var name = e.getFileName().toString();
-                if (Files.isRegularFile(e)) {
-                    try {
-                        currentVirtualDir.files.put(name, new RandomAccessFile(e.toFile(), "rw"));
-                    }
-                    catch (FileNotFoundException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                } else if (Files.isDirectory(e)) {
-                    var newDirNode = new DirectoryNode(name);
-                    currentVirtualDir.childDirs.add(newDirNode);
-                    init(e, newDirNode);
-                } else {
-                    throw new RuntimeException("unknown fs element type");
-                }
-            });
-        }
-        catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+    public void init(Path path) {
+        root.init(path);
+    }
+
+    public VirtualFile getFile(String s) {
+        return root.getFile(s.startsWith("/") ? s.substring(1) : s);
     }
 }
