@@ -1,5 +1,6 @@
-package AcLuaDev;
+package acluadev;
 
+import acluadev.fs.SandboxedFs;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
 
