@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/AcLuaDev.iml" filepath="$PROJECT_DIR$/AcLuaDev.iml" />
+      <module fileurl="file://$PROJECT_DIR$/submodules/JLuaVM/JLuaVM.iml" filepath="$PROJECT_DIR$/submodules/JLuaVM/JLuaVM.iml" />
     </modules>
   </component>
 </project>

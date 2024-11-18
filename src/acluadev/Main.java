@@ -17,14 +17,26 @@ public class Main {
         System.out.println(s);
     }
 
+    private static void loadMeasured(LuaVM vm, String code){
+        println("Loading");
+        var n = System.nanoTime();
+        vm.load(code);
+        var n2 = System.nanoTime();
+        var delta = n2 - n;
+        println("Finished in %.3f s".formatted(delta/1000_000_000d));
+    }
+
     private static LuaVM_RT startLuaVm(Path luaRootDir) {
         var fs = new SandboxedFs();
         fs.init(luaRootDir);
-        var f = fs.getFile("/test.txt");
+        var f = fs.getFile("/boot.lua");
         var rv = LuaVM.create().withStdLib();
         var _G = rv.get_G();
         _G.set("io", new LuaFilesystem(fs).getTable());
         // todo inject globals, load main file, initialize readonly filesystem, run on new thread
+        for (int i = 0; i < 1000; i++) {
+            loadMeasured(rv, f.readAllText());
+        }
         return (LuaVM_RT)rv;
     }
 
