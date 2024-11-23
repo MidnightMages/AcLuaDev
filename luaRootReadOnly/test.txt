@@ -1,1 +1,0 @@
-some readonly content

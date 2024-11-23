@@ -1,6 +1,7 @@
 package acluadev.fs;
 
 import java.nio.file.Path;
+import java.util.Collection;
 
 public class SandboxedFs {
     private final DirectoryNode root = new DirectoryNode(null);
@@ -15,7 +16,14 @@ public class SandboxedFs {
         root.init(path);
     }
 
+    private static String trimPath(String s) {
+        return s.startsWith("/") ? s.substring(1) : s;
+    }
     public VirtualFile getFile(String s) {
-        return root.getFile(s.startsWith("/") ? s.substring(1) : s);
+        return root.getFile(trimPath(s));
+    }
+
+    public Collection<VirtualFile> getFilesInDirectory(String path) {
+        return root.getDirectory(trimPath(path)).files.values();
     }
 }

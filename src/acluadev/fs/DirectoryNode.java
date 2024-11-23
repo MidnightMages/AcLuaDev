@@ -19,6 +19,11 @@ public class DirectoryNode {
         return splitted.length == 1 ? files.get(splitted[0]) : childDirs.get(splitted[0]).getFile(splitted[1]);
     }
 
+    public DirectoryNode getDirectory(String s) {
+        var splitted = s.split("/", 1);
+        return splitted.length == 1 ? childDirs.get(splitted[0]) : childDirs.get(splitted[0]).getDirectory(splitted[1]);
+    }
+
     public DirectoryNode addChildDir(String name) {
         var newDirNode = new DirectoryNode(name);
         this.childDirs.put(name, newDirNode);
@@ -35,7 +40,8 @@ public class DirectoryNode {
                 if (Files.isRegularFile(e)) {
                     files.put(name, VirtualFile.fromDiskFile(e));
                 } else if (Files.isDirectory(e)) {
-                    addChildDir(name).init(e);
+                    if (!e.endsWith("/.vscode/"))
+                        addChildDir(name).init(e);
                 } else {
                     throw new RuntimeException("unknown fs element type");
                 }

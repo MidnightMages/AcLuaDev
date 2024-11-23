@@ -11,10 +11,12 @@ public class LuaFilesystem {
     }
 
     // https://www.lua.org/manual/5.4/manual.html#6.8
-    public LuaObject getTable(){
+    public LuaObject getTable() {
         var rv = LuaObject.table();
         // TODO return a userdata filehandle table
-        rv.set("open", LuaObject.of(AtomicLuaFunction.forOneResult((vm, filename) -> LuaFsFile.createAsUserdata(fs.getFile(filename.asString())))));
+        rv.set("open", AtomicLuaFunction.forOneResult((vm, filename) -> LuaFsFile.createAsUserdata(fs.getFile(filename.asString()))).obj());
+        rv.set("list", AtomicLuaFunction.forOneResult((vm, path) ->
+                LuaObject.table(fs.getFilesInDirectory(path.getString()).stream().map(LuaFsFile::createAsUserdata).toArray(LuaObject[]::new))).obj());
         return rv;
     }
 }
