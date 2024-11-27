@@ -6,7 +6,7 @@ import dev.asdf00.jluavm.runtime.types.ILuaUserData;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 public class LuaFsFile implements ILuaUserData {
-    VirtualFile f;
+    final VirtualFile f;
 
     public LuaFsFile(VirtualFile f) {
         this.f = f;

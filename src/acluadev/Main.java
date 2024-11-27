@@ -4,6 +4,7 @@ import acluadev.fs.LuaFilesystem;
 import acluadev.fs.SandboxedFs;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
+import dev.asdf00.jluavm.runtime.stdlib.LGlobal;
 import dev.asdf00.jluavm.runtime.types.AtomicLuaFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
@@ -11,13 +12,42 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.sun.nio.file.ExtendedWatchEventModifier.FILE_TREE;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 public class Main {
+
+    private static LuaObject createIterFunction(Supplier<Collection<LuaObject[]>> retsS) {
+        return AtomicLuaFunction.forManyResults((vm) -> {
+            var rets = retsS.get();
+            var fullTable = LuaObject.table();
+            int idx = 0;
+            for (var e : rets) {
+                fullTable.set(LuaObject.of(++idx), LuaObject.tableFromArray(e));
+            }
+
+            return new LuaObject[]{LGlobal.next, fullTable, LuaObject.NIL};
+            /*
+            return AtomicLuaFunction.forManyResults((vm) -> {
+            var rets = retsS.get();
+            var tbl = new LuaObject[rets.size()];
+            int i = 0;
+            for (var rv : rets) {
+                tbl[i++] = LuaObject.of(rv);
+            }
+            return new LuaObject[]{LGlobal.next, LuaObject.of(tbl), LuaObject.NIL};
+        }).obj();
+             */
+        }).obj();
+
+    }
 
     private static void println(String s) {
         System.out.println(s);
@@ -33,18 +63,43 @@ public class Main {
     }
 
     private static LuaVM_RT startLuaVm(Path luaRootDir) {
-        var fs = new SandboxedFs();
-        fs.init(luaRootDir);
-        var f = fs.getFile("/boot.lua");
+        String bootFile; // read bios file
+        try {
+            bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("bios.lua")));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         var rv = LuaVM.create().withStdLib();
         var _G = rv.get_G();
-        _G.set("fs", new LuaFilesystem(fs).getTable());
+        var allComponents = new ArrayList<LuaComponent>();
+        var compTable = LuaObject.table();
+        _G.set("component", compTable);
+        compTable.set("list", createIterFunction(()->allComponents.stream().map(LuaComponent::asLuaObj).toList()));
+
+        // set up disk filesystems
+        for (var disk : IntStream.rangeClosed(1, 3).mapToObj(x -> "disk" + x).toArray(String[]::new)) {
+            var fs = new SandboxedFs();
+            var dp = luaRootDir.resolve(disk);
+            try {
+                if (!Files.isDirectory(dp))
+                    Files.createDirectory(dp);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            fs.init(dp);
+            allComponents.add(new LuaComponent("disk", new LuaFilesystem(fs).getTable()));
+            //compTable.set(LuaObject.of(compTable.len().asLong() + 1), new LuaFilesystem(fs).getTable());
+        }
+
         _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> println(Arrays.stream(args[0].asArray()).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
 
         var br = new BufferedReader(new InputStreamReader(System.in));
         _G.set("readline", AtomicLuaFunction.forOneResult((vm, msg) -> {
             try {
-                if (!msg.isNil()){
+                if (!msg.isNil()) {
                     println(msg.asString());
                 }
 
@@ -56,7 +111,7 @@ public class Main {
         }).obj());
         // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         for (int i = 0; i < 1; i++) {
-            loadMeasured(rv, f.readAllText());
+            loadMeasured(rv, bootFile);
         }
         println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C
         println("============ EXECUTING ============");

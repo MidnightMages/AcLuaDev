@@ -7,7 +7,7 @@ local function pp(tbl)
     end
 end
 pp(_G)
-print(a)
+
 local input = readline("Please enter a cool input:")
 
 print("You typed", input)

@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 
 public class DirectoryNode {
-    String name;
+    final String name;
     final HashMap<String, DirectoryNode> childDirs = new HashMap<>();
     final HashMap<String, VirtualFile> files = new HashMap<>();
 
