@@ -92,7 +92,7 @@ public class Main {
             //compTable.set(LuaObject.of(compTable.len().asLong() + 1), new LuaFilesystem(fs).getTable());
         }
 
-        _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> println(Arrays.stream(args[0].asArray()).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
+        _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> println(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
 
         var br = new BufferedReader(new InputStreamReader(System.in));
         _G.set("readline", AtomicLuaFunction.forOneResult((vm, msg) -> {
