@@ -18,8 +18,9 @@ public class LuaFsFile implements ILuaUserData {
 
     static LuaObject createAsUserdata(VirtualFile f){
         var inst = new LuaFsFile(f);
-        var rv = LuaObject.of(inst);
-        rv.set("read", LuaObject.of(AtomicLuaFunction.vaForManyResults(inst::read)));
+        //var rv = LuaObject.of(inst); // TODO wait for userdata support
+        var rv = LuaObject.table();
+        rv.set("read", AtomicLuaFunction.vaForManyResults(inst::read).obj());
         return rv;
     }
 }
