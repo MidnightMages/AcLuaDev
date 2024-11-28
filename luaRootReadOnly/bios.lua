@@ -1,4 +1,6 @@
-for i, a in component.list() do
-   print(i, a)
-   print(a[1], a[2])
+for t, a in component.list() do
+   print(t, a)
+   if t == "disk" then
+      print("has boot file? ", a.fileExists("boot.lua"))
+   end
 end

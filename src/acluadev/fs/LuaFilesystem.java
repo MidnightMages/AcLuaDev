@@ -17,6 +17,8 @@ public class LuaFilesystem {
         rv.set("open", AtomicLuaFunction.forOneResult((vm, filename) -> LuaFsFile.createAsUserdata(fs.getFile(filename.asString()))).obj());
         rv.set("list", AtomicLuaFunction.forOneResult((vm, path) ->
                 LuaObject.table(fs.getFilesInDirectory(path.getString()).stream().map(LuaFsFile::createAsUserdata).toArray(LuaObject[]::new))).obj());
+        rv.set("fileExists", AtomicLuaFunction.forOneResult((vm, path) ->
+                LuaObject.of(fs.fileExists(path.getString()))).obj());
         return rv;
     }
 }

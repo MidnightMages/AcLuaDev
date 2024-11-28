@@ -4,7 +4,7 @@ import acluadev.fs.LuaFilesystem;
 import acluadev.fs.SandboxedFs;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
-import dev.asdf00.jluavm.runtime.stdlib.LGlobal;
+import dev.asdf00.jluavm.runtime.errors.LuaUserError;
 import dev.asdf00.jluavm.runtime.types.AtomicLuaFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
@@ -14,7 +14,6 @@ import java.io.InputStreamReader;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -24,27 +23,26 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 public class Main {
 
-    private static LuaObject createIterFunction(Supplier<Collection<LuaObject[]>> retsS) {
-        return AtomicLuaFunction.forManyResults((vm) -> {
+    private static LuaObject createIterFunction(Supplier<LuaObject[][]> retsS) {
+        return AtomicLuaFunction.forManyResults($ -> {
             var rets = retsS.get();
-            var fullTable = LuaObject.table();
-            int idx = 0;
-            for (var e : rets) {
-                fullTable.set(LuaObject.of(++idx), LuaObject.tableFromArray(e));
-            }
-
-            return new LuaObject[]{LGlobal.next, fullTable, LuaObject.NIL};
-            /*
-            return AtomicLuaFunction.forManyResults((vm) -> {
-            var rets = retsS.get();
-            var tbl = new LuaObject[rets.size()];
-            int i = 0;
-            for (var rv : rets) {
-                tbl[i++] = LuaObject.of(rv);
-            }
-            return new LuaObject[]{LGlobal.next, LuaObject.of(tbl), LuaObject.NIL};
-        }).obj();
-             */
+            return new LuaObject[]{
+                    AtomicLuaFunction.forManyResults((vm, state) -> {
+                        var oldIdx = state.get(LuaObject.of(0));
+                        if (!oldIdx.isLong()) {
+                            vm.error(new LuaUserError("Internal error, or someone messed with the iterator state"));
+                            return null;
+                        }
+                        int nuIdx = (int) oldIdx.asLong() + 1;
+                        if (nuIdx < rets.length && nuIdx >= 0) {
+                            state.set(LuaObject.of(0), LuaObject.of(nuIdx));
+                            return rets[nuIdx];
+                        } else {
+                            return new LuaObject[0];
+                        }
+                    }).obj(),
+                    LuaObject.table(LuaObject.of(0), LuaObject.of(-1))
+            };
         }).obj();
 
     }
@@ -76,7 +74,7 @@ public class Main {
         var allComponents = new ArrayList<LuaComponent>();
         var compTable = LuaObject.table();
         _G.set("component", compTable);
-        compTable.set("list", createIterFunction(()->allComponents.stream().map(LuaComponent::asLuaObj).toList()));
+        compTable.set("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
 
         // set up disk filesystems
         for (var disk : IntStream.rangeClosed(1, 3).mapToObj(x -> "disk" + x).toArray(String[]::new)) {

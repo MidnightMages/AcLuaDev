@@ -26,4 +26,8 @@ public class SandboxedFs {
     public Collection<VirtualFile> getFilesInDirectory(String path) {
         return root.getDirectory(trimPath(path)).files.values();
     }
+
+    public boolean fileExists(String path) {
+        return root.fileExists(trimPath(path));
+    }
 }
