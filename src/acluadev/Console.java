@@ -6,14 +6,20 @@ import javax.swing.border.LineBorder;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import static javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS;
 
-public class Console {
+public class Console implements KeyListener {
     public final JTextPane textPane;
+    public Consumer<KeyEvent> onKeyTyped = null;
+    public Consumer<KeyEvent> onKeyPressed = null;
+    public Consumer<KeyEvent> onKeyReleased = null;
 
     private Console(JTextPane textPane) {
         this.textPane = textPane;
@@ -33,7 +39,6 @@ public class Console {
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        f.setVisible(true);
         f.setBackground(Color.BLACK);
 
         var textPane = new JTextPane();
@@ -63,7 +68,15 @@ public class Console {
         f.setMaximumSize(d);
         f.setMinimumSize(d);
 
-        return new Console(textPane);
+        f.setVisible(true);
+        f.setFocusable(true);
+        f.requestFocus();
+        f.setAutoRequestFocus(true);
+        var console = new Console(textPane);
+        f.addKeyListener(console);
+        textPane.addKeyListener(console);
+
+        return console;
     }
 
     private int lastLineLength = 0;
@@ -82,7 +95,7 @@ public class Console {
                         sb.append(chr);
                     }
                     case '\t' -> {
-                        var padLen = (4 - lineLen % 4) % 4;
+                        var padLen = (4 - lineLen % 4) % 4; // TODO make minimum 1
                         sb.append(" ".repeat(padLen));
                         lineLen += padLen;
                         assert lineLen % 4 == 0;
@@ -100,5 +113,23 @@ public class Console {
             throw new RuntimeException(e);
         }
 
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+        if(this.onKeyTyped != null)
+            this.onKeyTyped.accept(e);
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if(this.onKeyPressed != null)
+            this.onKeyPressed.accept(e);
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        if(this.onKeyReleased != null)
+            this.onKeyReleased.accept(e);
     }
 }

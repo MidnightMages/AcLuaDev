@@ -52,6 +52,7 @@ public class Main {
     private static void println(String s) {
         System.out.println(s);
     }
+
     private static void printlnLUA(String s) {
         console.println(s);
         println(s);
@@ -75,12 +76,22 @@ public class Main {
             throw new RuntimeException(e);
         }
 
+        var eventQueue = new AcEventQueue();
+        console.onKeyPressed = eventQueue::addKeyPressed;
+        console.onKeyReleased = eventQueue::addKeyReleased;
+        console.onKeyTyped = eventQueue::addKeyTyped;
         var rv = LuaVM.create().withStdLib();
         var _G = rv.get_G();
         var allComponents = new ArrayList<LuaComponent>();
         var compTable = LuaObject.table();
         _G.set("component", compTable);
         compTable.set("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
+        var computerTable = LuaObject.table();
+        _G.set("computer", computerTable);
+        computerTable.set("getMachineEvent", AtomicLuaFunction.forManyResults(vm -> {
+            var e = eventQueue.getQueuedEventOrNull();
+            return e == null ? new LuaObject[]{LuaObject.NIL} : e;
+        }).obj());
 
         // set up disk filesystems
         for (var disk : IntStream.rangeClosed(1, 3).mapToObj(x -> "disk" + x).toArray(String[]::new)) {
@@ -98,6 +109,14 @@ public class Main {
             //compTable.set(LuaObject.of(compTable.len().asLong() + 1), new LuaFilesystem(fs).getTable());
         }
 
+        _G.set("sleep", AtomicLuaFunction.forZeroResults((vm, time) -> {
+            try {
+                Thread.sleep((int)(time.asDouble()*1000));
+            }
+            catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).obj());
         _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> printlnLUA(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
 
         var br = new BufferedReader(new InputStreamReader(System.in));

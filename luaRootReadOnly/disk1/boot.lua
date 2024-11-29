@@ -8,7 +8,17 @@ local function pp(tbl)
 end
 pp(_G)
 
-local input = readline("Please enter a cool input:")
+
+while true do
+    local event, a1, a2 = computer.getMachineEvent()
+    if event == nil then
+        sleep(0.5)
+    else
+        print(event, a1, a2)
+    end
+end
+
+--local input = readline("Please enter a cool input:")
 
 print("You typed", input)
 -- init filesystem
