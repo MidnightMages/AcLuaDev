@@ -3,7 +3,6 @@ package acluadev;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
-import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import java.awt.*;
@@ -43,14 +42,14 @@ public class Console {
         textPane.setForeground(Color.WHITE);
         Font font;
         try {
-            font = Font.createFonts(getNonNullResourceStream("DejavuSansMono-5m7L.ttf"))[0];
+            font = Font.createFont(Font.TRUETYPE_FONT, getNonNullResourceStream("DejavuSansMono-5m7L.ttf"));
         }
         catch (FontFormatException | IOException e) {
             throw new RuntimeException(e);
         }
         textPane.setFont(font.deriveFont(24f));
         textPane.setEditable(false);
-        var caret = (DefaultCaret)textPane.getCaret();
+        var caret = (DefaultCaret) textPane.getCaret();
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
         var scrollPane = new JScrollPane(textPane);
@@ -58,7 +57,7 @@ public class Console {
         scrollPane.setVerticalScrollBarPolicy(VERTICAL_SCROLLBAR_ALWAYS);
         f.add(scrollPane, BorderLayout.CENTER);
 
-        var d = new Dimension(1000,520);
+        var d = new Dimension(1000, 520);
         f.setResizable(false);
         f.setSize(d);
         f.setMaximumSize(d);
@@ -67,10 +66,35 @@ public class Console {
         return new Console(textPane);
     }
 
-    public void println(String s) {
+    private int lastLineLength = 0;
+
+    public void println(String inStr) {
         var d = textPane.getStyledDocument();
+        inStr += "\n";
         try {
-            d.insertString(d.getLength(), s+"\n", null);
+            var sb = new StringBuilder(inStr.length() + 20);
+            int lineLen = lastLineLength;
+            for (int i = 0; i < inStr.length(); i++) {
+                var chr = inStr.charAt(i);
+                switch (chr) {
+                    case '\n' -> {
+                        lineLen = 0;
+                        sb.append(chr);
+                    }
+                    case '\t' -> {
+                        var padLen = (4 - lineLen % 4) % 4;
+                        sb.append(" ".repeat(padLen));
+                        lineLen += padLen;
+                        assert lineLen % 4 == 0;
+                    }
+                    default -> {
+                        lineLen++;
+                        sb.append(chr);
+                    }
+                }
+            }
+            d.insertString(d.getLength(), sb.toString(), null);
+            lastLineLength = 0;
         }
         catch (BadLocationException e) {
             throw new RuntimeException(e);
