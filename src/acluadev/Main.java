@@ -23,6 +23,8 @@ import static java.nio.file.StandardWatchEventKinds.*;
 
 public class Main {
 
+    private static Console console;
+
     private static LuaObject createIterFunction(Supplier<LuaObject[][]> retsS) {
         return AtomicLuaFunction.forManyResults($ -> {
             var rets = retsS.get();
@@ -49,6 +51,10 @@ public class Main {
 
     private static void println(String s) {
         System.out.println(s);
+    }
+    private static void printlnLUA(String s) {
+        console.println(s);
+        println(s);
     }
 
     private static void loadMeasured(LuaVM vm, String code) {
@@ -92,13 +98,13 @@ public class Main {
             //compTable.set(LuaObject.of(compTable.len().asLong() + 1), new LuaFilesystem(fs).getTable());
         }
 
-        _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> println(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
+        _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> printlnLUA(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
 
         var br = new BufferedReader(new InputStreamReader(System.in));
         _G.set("readline", AtomicLuaFunction.forOneResult((vm, msg) -> {
             try {
                 if (!msg.isNil()) {
-                    println(msg.asString());
+                    printlnLUA(msg.asString());
                 }
 
                 return LuaObject.of(br.readLine());
@@ -125,6 +131,7 @@ public class Main {
 
     @SuppressWarnings("BusyWait")
     public static void main(String[] args) throws IOException {
+        console = Console.createConsole();
         var fs = FileSystems.getDefault();
         var watchPath = Path.of(System.getProperty("user.dir"), "luaRootReadOnly");
         if (!Files.exists(watchPath)) {
