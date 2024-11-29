@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="AcLuaDev:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/AcLuaDev_jar</output-path>
+    <root id="archive" name="AcLuaDev.jar">
+      <element id="module-output" name="AcLuaDev" />
+      <element id="module-output" name="JLuaVM" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/submodules/JLuaVM/lib/joor-0.9.15.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
