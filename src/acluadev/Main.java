@@ -24,6 +24,8 @@ import static java.nio.file.StandardWatchEventKinds.*;
 public class Main {
 
     private static Console console;
+    private static AcEventQueue eventQueue;
+    private static Thread lvmThread;
 
     private static LuaObject createIterFunction(Supplier<LuaObject[][]> retsS) {
         return AtomicLuaFunction.forManyResults($ -> {
@@ -58,6 +60,11 @@ public class Main {
         println(s);
     }
 
+    private static void printInlineLUA(String s) {
+        console.printInline(s);
+        System.out.print(s);
+    }
+
     private static void loadMeasured(LuaVM vm, String code) {
         println("Loading");
         var n = System.nanoTime();
@@ -76,7 +83,7 @@ public class Main {
             throw new RuntimeException(e);
         }
 
-        var eventQueue = new AcEventQueue();
+        eventQueue = new AcEventQueue();
         console.onKeyPressed = eventQueue::addKeyPressed;
         console.onKeyReleased = eventQueue::addKeyReleased;
         console.onKeyTyped = eventQueue::addKeyTyped;
@@ -111,13 +118,14 @@ public class Main {
 
         _G.set("sleep", AtomicLuaFunction.forZeroResults((vm, time) -> {
             try {
-                Thread.sleep((int)(time.asDouble()*1000));
+                Thread.sleep((int) (time.asDouble() * 1000));
             }
             catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }).obj());
         _G.set("print", AtomicLuaFunction.vaForZeroResults((vm, args) -> printlnLUA(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
+        _G.set("printInline", AtomicLuaFunction.vaForZeroResults((vm, args) -> printInlineLUA(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))).obj());
 
         var br = new BufferedReader(new InputStreamReader(System.in));
         _G.set("readline", AtomicLuaFunction.forOneResult((vm, msg) -> {
@@ -144,8 +152,14 @@ public class Main {
         return (LuaVM_RT) rv;
     }
 
-    private static void stopLuaVm(LuaVM_RT vm) {
-        // todo kill the vm
+    private static void stopLuaVm() {
+        eventQueue.addRequestShutdown();
+        try {
+            lvmThread.join();
+        }
+        catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @SuppressWarnings("BusyWait")
@@ -162,10 +176,12 @@ public class Main {
         while (true) {
             try (WatchService ws = fs.newWatchService()) {
                 watchPath.register(ws, new WatchEvent.Kind[]{ENTRY_MODIFY, ENTRY_CREATE, ENTRY_DELETE}, FILE_TREE);
-                LuaVM_RT lvm = startLuaVm(watchPath);
+                lvmThread = new Thread(() -> startLuaVm(watchPath));
+                console.clear();
+                lvmThread.start();
                 ws.take();
                 try {
-                    stopLuaVm(lvm);
+                    stopLuaVm();
                 }
                 catch (Exception ex) {
                     println(ex.toString());

@@ -9,7 +9,7 @@ for t, a in component.list() do
          print("compiling...")
          --print(code, type(code))
          local f = load(code)
-         print("executing")
+         print("executing...")
 ---@diagnostic disable-next-line: need-check-nil
          f()
          break

@@ -29,4 +29,8 @@ public class AcEventQueue {
     public void addKeyTyped(KeyEvent keyEvent) {
         addRaw("keyTyped", LuaObject.of(Character.toString(keyEvent.getKeyChar())));
     }
+
+    public void addRequestShutdown() {
+        addRaw("shutdown");
+    }
 }

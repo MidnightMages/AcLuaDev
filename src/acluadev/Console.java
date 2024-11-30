@@ -81,21 +81,29 @@ public class Console implements KeyListener {
 
     private int lastLineLength = 0;
 
-    public void println(String inStr) {
+    public void printInline(String inStr) {
         var d = textPane.getStyledDocument();
-        inStr += "\n";
         try {
             var sb = new StringBuilder(inStr.length() + 20);
             int lineLen = lastLineLength;
             for (int i = 0; i < inStr.length(); i++) {
                 var chr = inStr.charAt(i);
                 switch (chr) {
+                    case '\b' -> {
+                        if (!sb.isEmpty()) {
+                            lineLen--;
+                            sb.deleteCharAt(sb.length() - 1); // todo this is a hack and breaks for \t\b
+                        } else {
+                            lineLen = (lineLen + 3) % 4;
+                            d.remove(d.getLength() - 1, 1);
+                        }
+                    }
                     case '\n' -> {
                         lineLen = 0;
                         sb.append(chr);
                     }
                     case '\t' -> {
-                        var padLen = (4 - lineLen % 4) % 4; // TODO make minimum 1
+                        var padLen = (4 - lineLen % 4);
                         sb.append(" ".repeat(padLen));
                         lineLen += padLen;
                         assert lineLen % 4 == 0;
@@ -112,24 +120,37 @@ public class Console implements KeyListener {
         catch (BadLocationException e) {
             throw new RuntimeException(e);
         }
+    }
 
+    public void println(String inStr) {
+        printInline(inStr + "\n");
+    }
+
+    public void clear() {
+        var d = textPane.getStyledDocument();
+        try {
+            d.remove(0, d.getLength());
+        }
+        catch (BadLocationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void keyTyped(KeyEvent e) {
-        if(this.onKeyTyped != null)
+        if (this.onKeyTyped != null)
             this.onKeyTyped.accept(e);
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
-        if(this.onKeyPressed != null)
+        if (this.onKeyPressed != null)
             this.onKeyPressed.accept(e);
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        if(this.onKeyReleased != null)
+        if (this.onKeyReleased != null)
             this.onKeyReleased.accept(e);
     }
 }
