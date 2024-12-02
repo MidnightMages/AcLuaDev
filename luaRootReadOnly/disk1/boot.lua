@@ -12,20 +12,12 @@ xpcall = function (...)
     return ...
 end
 
-local function truncLast(s)
-    local rv = ""
-    for i=1,#s-1 do
-        rv = rv .. string.sub(s,i,i)
-    end
-    return rv
-end
-
 local stringBuffer = ""
 local function keyTyped(key) -- return whether to exit
     if key == "\b" then
         if #stringBuffer > 0 then
             printInline(key)
-            stringBuffer = truncLast(stringBuffer) --stringBuffer:sub(1, #stringBuffer - 1)
+            stringBuffer = stringBuffer:sub(1, #stringBuffer - 1)
         end
     else
         printInline(key)
@@ -66,9 +58,6 @@ while true do
     end
 end
 
---local input = readline("Please enter a cool input:")
-
-print("You typed", input)
 -- init filesystem
 -- init shell
 -- run autorun.lua files
