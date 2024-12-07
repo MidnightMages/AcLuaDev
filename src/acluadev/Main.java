@@ -4,7 +4,6 @@ import acluadev.fs.LuaFilesystem;
 import acluadev.fs.SandboxedFs;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
-import dev.asdf00.jluavm.runtime.errors.LuaUserError;
 import dev.asdf00.jluavm.runtime.types.AtomicLuaFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
@@ -34,7 +33,7 @@ public class Main {
                     AtomicLuaFunction.forManyResults((vm, state) -> {
                         var oldIdx = state.get(LuaObject.of(0));
                         if (!oldIdx.isLong()) {
-                            vm.error(new LuaUserError("Internal error, or someone messed with the iterator state"));
+                            vm.error(LuaObject.of("Internal error, or someone messed with the iterator state"));
                             return null;
                         }
                         int nuIdx = (int) oldIdx.asLong() + 1;
