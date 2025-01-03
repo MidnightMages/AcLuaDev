@@ -27,12 +27,13 @@ local function keyTyped(key) -- return whether to exit
         if stringBuffer == "exit()" then
             return true
         end
-        local res, err = load(stringBuffer, _G)
+        local res, err = load(stringBuffer, "", "t", _G)
         stringBuffer = ""
         if not res then
             print("Error: ", err)
         else
-            res() --[[
+            rvs = table.pack(pcall(res))
+            --[[
             local rvs = table.pack(xpcall(res,function(msg)
                 local trcb = debug.traceback("X-ERR: " .. tostring(msg), 2)
                 for i = 1, 4, 1 do
@@ -40,6 +41,10 @@ local function keyTyped(key) -- return whether to exit
                 end
                 print(trcb)
             end))]]
+            rvs[1] = rvs[1] and "OK" or "ERROR"
+            --if #rvs > 1 then
+            print(table.unpack(rvs))
+            --end
         end
         printInline(">> ")
     elseif key ~= "\b" then
