@@ -52,6 +52,7 @@ local function keyTyped(key) -- return whether to exit
     end
 end
 
+printInline(">> ")
 while true do
     local event, a1, a2 = computer.getMachineEvent()
     if event == nil then
