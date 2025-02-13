@@ -15,17 +15,17 @@ public class DirectoryNode {
     }
 
     public VirtualFile getFile(String s) {
-        var splitted = s.split("/", 1);
+        var splitted = s.split("/", 2);
         return splitted.length == 1 ? files.get(splitted[0]) : childDirs.get(splitted[0]).getFile(splitted[1]);
     }
 
     public DirectoryNode getDirectory(String s) {
-        var splitted = s.split("/", 1);
+        var splitted = s.split("/", 2);
         return splitted.length == 1 ? childDirs.get(splitted[0]) : childDirs.get(splitted[0]).getDirectory(splitted[1]);
     }
 
     public boolean fileExists(String s) {
-        var splitted = s.split("/", 1);
+        var splitted = s.split("/", 2);
         return splitted.length == 1 ? files.containsKey(splitted[0]) : childDirs.get(splitted[0]).fileExists(splitted[1]);
     }
 
