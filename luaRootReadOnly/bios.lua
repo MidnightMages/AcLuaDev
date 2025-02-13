@@ -1,3 +1,4 @@
+_G.components = {}
 local idx = 1
 for t, a in component.list() do
    print(t, a)
@@ -8,10 +9,15 @@ for t, a in component.list() do
          local code = a.open("boot.lua").read()
          print("compiling...")
          --print(code, type(code))
+         _G.bootDrive = a
          local f = load(code)
+         if not f then error("bios boot compilation failed") end
          print("executing...")
----@diagnostic disable-next-line: need-check-nil
-         f()
+---@diagnostic disable-next-line: need-check-nil         
+         local ok, err = pcall(f)
+         if not ok then print(err)
+            error("bios boot error")
+         end
          break
       else
          idx = idx+1
