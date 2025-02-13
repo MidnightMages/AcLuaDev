@@ -143,6 +143,8 @@ public class Main {
         for (int i = 0; i < 1; i++) {
             loadMeasured(rv, bootFile);
         }
+        for (var comp : allComponents)
+            eventQueue.addComponentAdded(comp);
         println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C
         println("============ EXECUTING ============");
         var res = rv.run();

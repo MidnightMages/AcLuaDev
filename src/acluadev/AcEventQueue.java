@@ -33,4 +33,8 @@ public class AcEventQueue {
     public void addRequestShutdown() {
         addRaw("shutdown");
     }
+
+    public void addComponentAdded(LuaComponent comp) {
+        addRaw("componentAdded", comp.asLuaObj());
+    }
 }
