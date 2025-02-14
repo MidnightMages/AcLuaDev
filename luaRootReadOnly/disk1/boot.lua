@@ -60,8 +60,9 @@ assert(bootDrive ~= nil, "unable to rediscover bootdrive")
 _G.package = {}
 package.path = "/lib/?.lua"
 package.loaded = {}
-package.loaded.filesystem = assert(load(bootDrive.open("/lib/filesystem.lua").read()), "failed to initialize filesystem")
+package.loaded.filesystem = assert(load(bootDrive.open("/lib/filesystem.lua").read())(), "failed to initialize filesystem")
 local fs = package.loaded.filesystem -- fs = require("filesystem")
+
 
 function require(moduleName)
     assert(moduleName and #moduleName > 0, "module name must be a nonempty string")
@@ -81,10 +82,13 @@ function require(moduleName)
     error("module '"..tostring(moduleName).."' could not be found in package.path")
 end
 
+fs = require("filesystem") -- to keep the lua plugin happy
+fs:init(bootDrive)
+print(fs:readAllText("/lib/filesystem.lua"))
 
 pp(_G)
 
-sleep(5)
+--sleep(5)
 xpcall = function (...)
     return ...
 end

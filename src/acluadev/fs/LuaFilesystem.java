@@ -14,7 +14,13 @@ public class LuaFilesystem {
     public LuaObject getTable() {
         var rv = LuaObject.table();
         // TODO return a userdata filehandle table
-        rv.set("open", AtomicLuaFunction.forOneResult((vm, filename) -> LuaFsFile.createAsUserdata(fs.getFile(filename.asString()))).obj());
+        rv.set("open", AtomicLuaFunction.forOneResult((vm, filename) -> {
+            if (!fs.fileExists(filename.asString())) {
+                vm.error(LuaObject.of("File '%s' does not exist".formatted(filename.asString())));
+                return null;
+            }
+            return LuaFsFile.createAsUserdata(fs.getFile(filename.asString()));
+        }).obj());
         rv.set("list", AtomicLuaFunction.forOneResult((vm, path) ->
                 LuaObject.table(fs.getFilesInDirectory(path.getString()).stream().map(LuaFsFile::createAsUserdata).toArray(LuaObject[]::new))).obj());
         rv.set("fileExists", AtomicLuaFunction.forOneResult((vm, path) ->

@@ -26,7 +26,7 @@ public class DirectoryNode {
 
     public boolean fileExists(String s) {
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? files.containsKey(splitted[0]) : childDirs.get(splitted[0]).fileExists(splitted[1]);
+        return splitted.length == 1 ? files.containsKey(splitted[0]) : (childDirs.containsKey(splitted[0]) && childDirs.get(splitted[0]).fileExists(splitted[1]));
     }
 
     public DirectoryNode addChildDir(String name) {
