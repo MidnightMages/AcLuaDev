@@ -23,7 +23,7 @@ function string.split(str, delim)
             buf = buf..c
         end
     end
-
+    table.insert(rv, buf)
     return rv
 end
 function string.replace(str, search, replacement) 
