@@ -11,7 +11,7 @@ local function normalizePath(path)
     local output = ""
     for i = #segments, 1, -1 do
         local seg = segments[i]
-        print("seg:",seg)
+        --print("seg:",seg)
         if seg == ".." then
             skipCnt = skipCnt + 1
         elseif seg ~= "." then
@@ -33,6 +33,7 @@ function fs:addMountPoint(path, drive)
         path = path .. "/"
     end
     assert(drive, "no drive specified")
+    print("Adding mount: '"..tostring(path).."'")
     assert(not mounts[path], "mount point '"..path.."' already exists")
     mounts[path] = drive
 end
@@ -53,23 +54,51 @@ function fs:readAllText(filePath)
     assert(string.startsWith(filePath,"/"))
     local p = normalizePath(filePath)
     local drive, prefix = getMountPoint(p)
-    local drivePath = string.sub(p, #prefix+1)
-    print("a", drivePath, p, filePath)
+    local drivePath = "/"..string.sub(p, #prefix+1)
     return drive.open(drivePath).read()
+end
+
+function fs:fileExists(filePath)
+    assert(string.startsWith(filePath,"/"))
+    local p = normalizePath(filePath)
+    local drive, prefix = getMountPoint(p)
+    local drivePath = "/"..string.sub(p, #prefix+1)
+    return drive.fileExists(drivePath)
 end
 
 function fs:init(bootDrive)
     assert(bootDrive)
     fs:addMountPoint("/", bootDrive)
     -- load other mountpoints from fstab
-    if true then 
-    return nil end
-    local t = fs:readAllText("/fstab")
-    for _, v in ipairs(string.split(t,"\n")) do
-        local s = string.split(v, "=", 2)
-        assert(#s == 2, "invalid mountpoint definition: "..tostring(v))
-        fs:addMountPoint(table.unpack(s))
+    local fst = "/etc/fstab"
+    if not fs:fileExists(fst) then
+        fs:writeAllText(fst, "")
+    else
+        local t = fs:readAllText(fst)
+        for _, v in ipairs(string.split(t,"\n")) do
+            if #v>0 then
+                local s = string.split(v, "=", 2)
+                assert(#s == 2, "invalid mountpoint definition: "..tostring(v))
+                local diskId,path = table.unpack(s)
+                local validDiskIds = ""
+                local found = false
+                for t2, a in pairs(components) do
+                    if t2 == "disk" and a.id == diskId then
+                        fs:addMountPoint(path, a)
+                        found = true
+                        break
+                    else
+                        validDiskIds = validDiskIds .. a.id .. ";"
+                    end
+                end
+                if not found then
+                    error("Unable to find drive '"..tostring(diskId).."' for mountpoint '"..tostring(path).."'! Valid drives found: "..validDiskIds)
+                end
+            end
+        end
     end
 end
+
+
 
 return fs

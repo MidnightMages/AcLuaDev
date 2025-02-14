@@ -77,8 +77,7 @@ public class Main {
         String bootFile; // read bios file
         try {
             bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("bios.lua")));
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
@@ -106,20 +105,20 @@ public class Main {
             try {
                 if (!Files.isDirectory(dp))
                     Files.createDirectory(dp);
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
             fs.init(dp);
-            allComponents.add(new LuaComponent("disk", new LuaFilesystem(fs).getTable()));
+            var t = new LuaFilesystem(fs).getTable();
+            t.set("id", LuaObject.of("diskid_" + disk));
+            allComponents.add(new LuaComponent("disk", t));
             //compTable.set(LuaObject.of(compTable.len().asLong() + 1), new LuaFilesystem(fs).getTable());
         }
 
         _G.set("sleep", AtomicLuaFunction.forZeroResults((vm, time) -> {
             try {
                 Thread.sleep((int) (time.asDouble() * 1000));
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }).obj());
@@ -134,8 +133,7 @@ public class Main {
                 }
 
                 return LuaObject.of(br.readLine());
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }).obj());
@@ -157,8 +155,7 @@ public class Main {
         eventQueue.addRequestShutdown();
         try {
             lvmThread.join();
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
@@ -183,13 +180,11 @@ public class Main {
                 ws.take();
                 try {
                     stopLuaVm();
-                }
-                catch (Exception ex) {
+                } catch (Exception ex) {
                     println(ex.toString());
                 }
                 Thread.sleep(250);
-            }
-            catch (InterruptedException e) {
+            } catch (InterruptedException e) {
                 println("Interrupted");
                 break;
             }
