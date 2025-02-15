@@ -66,25 +66,33 @@ assert(bootDrive ~= nil, "unable to rediscover bootdrive")
 _G.package = {}
 package.path = "/lib/?.lua"
 package.loaded = {}
+-- init filesystem
 package.loaded.filesystem = assert(load(bootDrive.open("/lib/filesystem.lua").read())(), "failed to initialize filesystem")
 local fs = package.loaded.filesystem -- fs = require("filesystem")
 
+
+function loadfile(path)
+    local c = fs:readAllText(path)
+    return assert(load(c, path, "t", _ENV))
+end
+function dofile(path, ...) return loadfile(path)(...) end
 
 function require(moduleName)
     assert(moduleName and #moduleName > 0, "module name must be a nonempty string")
     assert(#string.split(moduleName,"/"), "module name cannot contain slashes")
 
+    local rv = nil
     local existing = package.loaded[moduleName]
     if existing ~= nil then return existing end
     for _, p in ipairs(string.split(package.path,";")) do
         local path = string.replace(p, "?", moduleName)
-        if fs.isFile(path) then
-            local code = fs.open(path).read()
-            local rv = load(code, moduleName, "t", _ENV)
+        if fs:fileExists(path) then
+            rv = dofile(path)
             package.loaded[moduleName] = rv
-            return rv
+            break
         end
     end
+    if rv then return rv end
     error("module '"..tostring(moduleName).."' could not be found in package.path")
 end
 
@@ -92,65 +100,16 @@ fs = require("filesystem") -- to keep the lua plugin happy
 
 fs:init(bootDrive)
 --print(fs:readAllText("/lib/filesystem.lua"))
-
 --pp(_G)
-
 --sleep(5)
-xpcall = function (...)
-    return ...
-end
-local stringBuffer = ""
-local function keyTyped(key) -- return whether to exit
-    if key == "\b" then
-        if #stringBuffer > 0 then
-            printInline(key)
-            stringBuffer = stringBuffer:sub(1, #stringBuffer - 1)
-        end
-    else
-        printInline(key)
-    end
 
-    if key == "\n" then
-        if stringBuffer == "exit()" then
-            return true
-        end
-        local res, err = load(stringBuffer, "", "t", _G)
-        stringBuffer = ""
-        if not res then
-            print("Error: ", err)
-        else
-            local rvs = table.pack(pcall(res))
-            --[[
-            local rvs = table.pack(xpcall(res,function(msg)
-                local trcb = debug.traceback("X-ERR: " .. tostring(msg), 2)
-                for i = 1, 4, 1 do
-                    trcb = trcb:sub(1, trcb:match("^.*()\n") - 1)
-                end
-                print(trcb)
-            end))]]
-            rvs[1] = rvs[1] and "OK" or "ERROR"
-            --if #rvs > 1 then
-            print(table.unpack(rvs))
-            --end
-        end
-        printInline(">> ")
-    elseif key ~= "\b" then
-        stringBuffer = stringBuffer .. key
-    end
-end
+print("Loading kernel...")
+local kernel = require("kernel")
 
-printInline(">> ")
-while true do
-    local event, a1, a2 = computer.getMachineEvent()
-    if event == nil then
-        sleep(0.05)
-    elseif event == "shutdown" then
-        break
-    elseif event == "keyTyped" then
-        if keyTyped(a1) then break end
-    end
-end
-
--- init filesystem
 -- init shell
+kernel:startProcess("/bin/lua.lua")
+
+print("Starting kernel...")
+kernel:run()
+
 -- run autorun.lua files
