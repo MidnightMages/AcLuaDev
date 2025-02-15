@@ -7,12 +7,12 @@ for t, a in component.list() do
       if a.fileExists("boot.lua") then
          print("Bootable file found on disk #"..idx.." - reading...")
          local code = a.open("boot.lua").read()
-         print("compiling...")
+         print("Compiling boot.lua...")
          --print(code, type(code))
          _G.bootDrive = a
          local f = load(code)
          if not f then error("bios boot compilation failed") end
-         print("executing...")
+         print("Booting...")
 ---@diagnostic disable-next-line: need-check-nil         
          local ok, err = pcall(f)
          if not ok then print(err)
