@@ -10,6 +10,9 @@ end
 
 function string.endsWith(str, suffix) return string.sub(str, #str-#suffix+1) == suffix end
 function string.startsWith(str, prefix) return string.sub(str, 1, #prefix) == prefix end
+---@param delim string
+---@param ... string
+function string.join(delim, ...) return table.concat(table.pack(...), delim) end
 function string.split(str, delim, maxResultCountOrNil)
     assert(#delim == 1, "only delim len 1 supported for now")
     maxResultCountOrNil = (maxResultCountOrNil or 0)-1
