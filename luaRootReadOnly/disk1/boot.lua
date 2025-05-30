@@ -110,7 +110,7 @@ print("Loading kernel...")
 local kernel = require("kernel")
 
 -- init shell
-kernel:startProcess("/bin/lua.lua")
+kernel:startProcessFromPath("/bin/lua.lua")
 
 print("Starting kernel...")
 kernel:run()

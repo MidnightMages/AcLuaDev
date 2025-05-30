@@ -1,3 +1,5 @@
+local kernel = require("kernel")
+
 local stringBuffer = ""
 local function keyTyped(key) -- return whether to exit
     if key == "\b" then
@@ -39,13 +41,8 @@ local function keyTyped(key) -- return whether to exit
 end
 
 printInline(">> ")
-while true do
-    local event, a1, a2 = computer.getMachineEvent()
-    if event == nil then
-        sleep(0.05)
-    elseif event == "shutdown" then
-        break
-    elseif event == "keyTyped" then
-        if keyTyped(a1) then break end
-    end
-end
+local keepRunning = true
+kernel:registerEventCalback("keyTyped", function(...)
+    if keyTyped(select(2,...)) then keepRunning = false end
+end)
+while keepRunning do sleep(1) end
