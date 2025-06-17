@@ -3,5 +3,10 @@
 		{
 			"path": "luaRootReadOnly"
 		}
-	]
+	],
+	"settings": {
+		"Lua.diagnostics.globals": [
+			"printInline"
+		]
+	}
 }

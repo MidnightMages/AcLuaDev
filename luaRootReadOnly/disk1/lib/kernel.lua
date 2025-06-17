@@ -5,6 +5,7 @@ local kernel = {}
 ---@field coroutine thread
 ---@field cwd string
 ---@field resumeAfter number
+---@field args string
 
 ---@class process : processStartData
 ---@field pid integer
@@ -69,17 +70,28 @@ function kernel:run()
         end
 
         if processIdleTimeLeft <= 0 then
+            local deadProcesses = {}
             local earliestResume = nil
             for pid, proc in pairs(processes) do
                 if proc.resumeAfter < os_time() then
                     currProcess = proc -- TODO lock this table or make a clone, so that it cannot be edited
                     --print("resuming", coroutine.status(proc.coroutine))
-                    coroutine.resume(proc.coroutine)
+                    local rv = coroutine.resume(proc.coroutine)
+                    -- TODO remove coroutine from processes if the coroutine has entered the dead state -> the process has exited
+                    if coroutine.status(proc.coroutine) == "dead" then
+                        proc.handle.result = rv
+                        proc.handle.state = "dead"
+                        table.insert(deadProcesses, pid)
+                    end
                     local resumeAt =  currProcess.resumeAfter
                     earliestResume = earliestResume and math.min(earliestResume, resumeAt) or resumeAt
                     currProcess = nil
                 end
             end
+            for i = 1, #deadProcesses do
+                processes[deadProcesses[i]] = nil
+            end
+
             processIdleTimeLeft = math.min(1, earliestResume and (earliestResume-os_time()) or 0) -- pause process queue execution at most for one second
         end
         
@@ -91,7 +103,7 @@ function kernel:run()
 end
 
 ---@param duration number Duration in seconds
-sleep = function(duration)
+_G["sleep"] = function(duration)
     currProcess.resumeAfter = os_time() + math.max(0, duration)
     coroutine.yield()
 end
@@ -101,19 +113,30 @@ function kernel:getCurrentProcess() return assert(currProcess) end
 
 local nextPid = 1
 ---@param proc processStartData
-function kernel:startProcess(proc)
+function kernel:startProcess(proc) -- TODO return process handle that gets the return values/process result
     local pid = nextPid
     nextPid = nextPid+1
     proc["pid"] = pid
+    local handle = {pid=pid, result = nil, state="running"}
+    proc["handle"] = handle
     table.insert(processes, proc)
-    return pid
+    return handle
 end
 
 ---@param luaPath string
-function kernel:startProcessFromPath(luaPath)
+---@param argString string?
+function kernel:startProcessFromPath(luaPath, argString)
     local f = assert(loadfile(luaPath), "failed to load file")
     local psplits = string.split(luaPath,"/")
-    return kernel:startProcess({priority=0, coroutine=coroutine.create(f), cwd=table.concat(psplits, "/", 1, #psplits-1).."/", resumeAfter=-1})
+    return kernel:startProcess({priority=0, coroutine=coroutine.create(f), cwd=table.concat(psplits, "/", 1, #psplits-1).."/", resumeAfter=-1, args=argString})
+end
+
+---@param processHandle processHandle
+function kernel:waitForProcessExit(processHandle)
+    while processHandle.state ~= "dead" do
+        sleep(0.5)
+    end
+    return processHandle.result
 end
 
 return kernel
