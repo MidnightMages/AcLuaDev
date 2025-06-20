@@ -1,9 +1,10 @@
 local kernel = require("kernel")
 
+local function printPrefix() printInline("root@hostname:/path/to/cwd# ") end
+
 local captureInput = true
 local stringBuffer = ""
 local function keyTyped(key) -- return whether to exit
-    print("capture input flag", captureInput)
     if not captureInput then return end
     if key == "\b" then
         if #stringBuffer > 0 then
@@ -24,6 +25,7 @@ local function keyTyped(key) -- return whether to exit
         local res = kernel:waitForProcessExit(proc)
         captureInput = true
         print("result:",res[1] == true and "success" or "error" ,select(2,table.unpack(res)))
+        printPrefix()
     elseif key ~= "\b" then
         stringBuffer = stringBuffer .. key
     end
@@ -67,13 +69,11 @@ printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣿⣆⠀⠀⠀⠀⠀⠀⢀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣤⣄⣀⡀⠀⠀⠀⣿")
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⢿⣻⣷⣶⣾⣿⣿⡿⢯⣛⣛⡋⠁⠀⠀⠉⠙⠛⠛⠿⣿⣿⡷⣶⣿")
 
-printInline("root@hostname:/path/to/cwd# ")
+printPrefix()
 local keepRunning = true
 kernel:registerEventCallback("keyTyped", function(...)
     if keyTyped(select(2,...)) then keepRunning = false end
 end)
-while keepRunning do 
-    --print("A", select(2, coroutine.running())); 
+while keepRunning do
     sleep(5);
-    --print("B") 
 end

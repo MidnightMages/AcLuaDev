@@ -77,6 +77,7 @@ function kernel:run()
     local processIdleTimeLeft = 0
     while not shutdownRequested do
 
+        local eventTriggered = false
         while true do -- process event queue always
             local nextEvent = table.pack(computer.getMachineEvent())
             if nextEvent[1] == nil then break end
@@ -90,7 +91,8 @@ function kernel:run()
                     for i = 1, #eh.process.coroutines do
                         assert(coroutine.status(eh.process.coroutines[i]) ~= "dead", "a coroutine was dead and was not cleaned up2")
                     end
-                    print("interrupt set up for proc id", eh.process.pid)
+                    --print("interrupt set up for proc id", eh.process.pid)
+                    eventTriggered = true
                     table.insert(eh.process.coroutines, coroutine.create(
                         function()
                             eh.func(table.unpack(nextEvent)) end
@@ -103,7 +105,7 @@ function kernel:run()
             end
         end
         assert(currProcess == nil, "kernel currProc was not reset")
-        if processIdleTimeLeft <= 0 then
+        if processIdleTimeLeft <= 0 or eventTriggered then
             local deadProcesses = {}
             local earliestResume = nil
             local processCopy = {}
@@ -116,59 +118,76 @@ function kernel:run()
             for procIdx, proc in pairs(processCopy) do
                 --print("processing proc ", proc.pid)
                 if (proc.resumeAfter < os_time()) or (#proc.coroutines > 1) then
+                    local deadCoroutineIndices = {}
+                    local deadCoroutineIndices_len = 0
+                    local cosToResume = {}
+                    for i = 2, #proc.coroutines do
+                        table.insert(cosToResume, {i, proc.coroutines[i]})
+                    end
+                    table.insert(cosToResume, {1, proc.coroutines[1]})
                     currProcess = proc -- TODO lock this table or make a clone, so that it cannot be edited
-                    --print("origProcess", tostring(currProcess))
-                    --print("resuming", coroutine.status(proc.coroutine))
-                    local resumptionIdx = 1
-                    local flag = false
-                    if #proc.coroutines > 1 then
-                        resumptionIdx = 2
-                        print("resuming interrupt for pid", proc.pid, "queue len", #proc.coroutines-1)
-                        flag = proc.pid == 1
-                    end
-                    --print("co count", resumptionIdx)
-                    local resumedCo = proc.coroutines[resumptionIdx]
-                    assert(resumedCo ~= nil, "coroutine to resume was nil "..tostring(resumptionIdx)..","..tostring(#proc.coroutines)..","..tostring(proc.pid))
-                    local resState = coroutine.status(resumedCo)
-                    if resState ~= "suspended" then
-                        print("Coroutine is in abnormal state: ", resState, #proc.coroutines)
-                    end
-
-                    -- success and reults
-                    local rv = table.pack(coroutine.resume(resumedCo))
-                    local cores = coroutine.status(resumedCo)
-                    if flag and cores ~= "dead" then
-                        print("pid 1 interrupt res", cores)
-                    end
-                    if not rv[1] then
-                        print("[warn] co errored:", rv[2])
-                    end
-
-                    -- remove coroutine from processes if the coroutine has entered the dead state -> the process has exited
-                    if coroutine.status(resumedCo) == "dead" then
-                        proc.coroutines = tableWithoutPos(proc.coroutines, resumptionIdx) -- TODO replace with table.remove once implemented
-                        --table.remove(proc.coroutines, resumptionIdx)
-                        for i = 1, #proc.coroutines do
-                            assert(coroutine.status(proc.coroutines[i]) ~= "dead", "a coroutine was dead and was not cleaned up")
+                    for ci, kv in ipairs(cosToResume) do
+                        local coToResume = kv[2]
+                        local coToResumeIdx = kv[1]
+                        local isInterrupt = ci < #cosToResume
+                        assert(coToResume ~= nil, "coroutine to resume was nil "..tostring(#proc.coroutines)..","..tostring(proc.pid))
+                        local resState = coroutine.status(coToResume)
+                        if resState ~= "suspended" then
+                            print("Coroutine is in abnormal state: ", resState, #proc.coroutines)
                         end
 
-                        if resumptionIdx == 1 then
-                            assert(#proc.coroutines == 0, "cleaned up root co before interrupts")
+                        -- success and reults
+                        local rv = table.pack(coroutine.resume(coToResume))
+                        local cores = coroutine.status(coToResume)
+                        --if isInterrupt and cores ~= "dead" then -- good for finding deadlocks
+                            --print("pid 1 interrupt res", cores)
+                        --end
+                        if not rv[1] then
+                            print("[warn] co errored:", rv[2])
                         end
 
-                        --print("dead", resumptionIdx)
-                        if #proc.coroutines == 0 then -- if no more coroutines, then process has died
-                            proc.handle.result = rv
-                            proc.handle.state = "dead"
-                            table.insert(deadProcesses, procIdx)
-                            print("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  "has exited")
-                        end
-                        -- remove the dead coroutine
-                        --print("rem func", table.remove)
-                        --print("deleted dead co")
+                        -- remove coroutine from processes if the coroutine has entered the dead state -> the process has exited
+                        if coroutine.status(coToResume) == "dead" then
+                            --for i = 1, #proc.coroutines, 1 do
+                            --   print(i, coroutine.status(proc.coroutines[i]) )
+                            --end
+                            --print("removing id", coToResumeIdx)
+                            deadCoroutineIndices[coToResumeIdx] = true
+                            deadCoroutineIndices_len = deadCoroutineIndices_len + 1
 
+                            --table.remove(proc.coroutines, resumptionIdx)
+                            for i = 1, #proc.coroutines do                                
+                                assert(coroutine.status(proc.coroutines[i]) ~= "dead" or deadCoroutineIndices[i], "a coroutine was dead and was not cleaned up")
+                            end
+                            local aliveCoroutineCnt = #proc.coroutines - deadCoroutineIndices_len
+                            --print("counts",#proc.coroutines, deadCoroutineIndices_len)
+                            if coToResumeIdx == 1 then
+                                assert(aliveCoroutineCnt == 0, "cleaned up root co before interrupts")
+                            end
+
+                            --print("dead", resumptionIdx)
+                            if aliveCoroutineCnt == 0 then -- if no more coroutines, then process has died
+                                proc.handle.result = rv
+                                proc.handle.state = "dead"
+                                table.insert(deadProcesses, procIdx)
+                                print("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  "has exited")
+                            end
+                            -- remove the dead coroutine
+                            --print("rem func", table.remove)
+                            --print("deleted dead co")
+                        end
                     end
 
+                    for i = #proc.coroutines,1,-1 do
+                        if deadCoroutineIndices[i] then
+                            --print("deleting idx", i)
+                            proc.coroutines = tableWithoutPos(proc.coroutines, i) -- TODO replace with table.remove once implemented                            
+                        end
+                    end
+
+                    for i = 1, #proc.coroutines do                                
+                        assert(coroutine.status(proc.coroutines[i]) ~= "dead" or deadCoroutineIndices[i], "a coroutine was dead and was not cleaned up3")
+                    end
 
                     local resumeAt =  currProcess.resumeAfter
                     earliestResume = earliestResume and math.min(earliestResume, resumeAt) or resumeAt
@@ -205,7 +224,7 @@ _G["sleep"] = function(duration)
     --print("yielding")
     assert(select(2,coroutine.running()) == false, "attempted to yield kernel coroutine")
     --print(coroutine.running())
-    print("yielding")
+    --print("yielding")
     coroutine.yield()
 end
 
