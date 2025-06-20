@@ -106,6 +106,54 @@ fs:init(bootDrive)
 --pp(_G)
 --sleep(5)
 
+-- test code
+--[[
+local main, isMain = coroutine.running()
+assert(isMain,"1")
+local co = coroutine.create(function(a)
+    print("yielding")
+    local co2, isMain2 = coroutine.running()
+    assert(not isMain2)
+    local co3 = coroutine.create(function (b)
+        print("yielding inner")
+        local co3, isMain3 = coroutine.running()
+        assert(not isMain3)
+        coroutine.yield()
+        print("inner coroutine has run")
+    end)
+    coroutine.yield()
+    print("running inner")
+    coroutine.resume(co3)
+    print("running inner again")
+    coroutine.resume(co3)
+    print("co has run")
+end)
+coroutine.resume(co)
+coroutine.resume(co)
+
+sleep(5)
+]]--[[
+local volflag = 0
+function f(arg)
+    volflag = volflag + 1
+    coroutine.yield()
+    print(arg, volflag)
+end
+
+local co = coroutine.create(function()
+    f("b")
+end)
+local co2 = coroutine.create(function()
+   f("a")
+    coroutine.resume(co)
+    coroutine.resume(co)
+end)
+
+coroutine.resume(co2)
+coroutine.resume(co2)
+sleep(5)]]
+-- end test code
+
 print("Loading kernel...")
 local kernel = require("kernel")
 

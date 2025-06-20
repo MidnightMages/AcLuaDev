@@ -42,7 +42,7 @@ end
 
 printInline(">> ")
 local keepRunning = true
-kernel:registerEventCalback("keyTyped", function(...)
+kernel:registerEventCallback("keyTyped", function(...)
     if keyTyped(select(2,...)) then keepRunning = false end
 end)
 while keepRunning do sleep(1) end
