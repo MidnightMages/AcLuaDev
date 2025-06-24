@@ -52,7 +52,7 @@ public class Console implements KeyListener {
         catch (FontFormatException | IOException e) {
             throw new RuntimeException(e);
         }
-        textPane.setFont(font.deriveFont(24f));
+        textPane.setFont(font.deriveFont(14f));
         textPane.setEditable(false);
         var caret = (DefaultCaret) textPane.getCaret();
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
@@ -60,6 +60,7 @@ public class Console implements KeyListener {
         var scrollPane = new JScrollPane(textPane);
         scrollPane.setBorder(new LineBorder(Color.BLACK));
         scrollPane.setVerticalScrollBarPolicy(VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setAutoscrolls(true);
         f.add(scrollPane, BorderLayout.CENTER);
 
         var d = new Dimension(1000, 520);
