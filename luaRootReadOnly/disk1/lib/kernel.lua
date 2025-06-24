@@ -5,7 +5,7 @@ local kernel = {}
 ---@field coroutines thread[]
 ---@field cwd string
 ---@field resumeAfter number
----@field args string?
+---@field args string
 
 ---@class process : processStartData
 ---@field pid integer
@@ -250,7 +250,7 @@ end
 function kernel:startProcessFromPath(luaPath, argString)
     local f = assert(loadfile(luaPath), "failed to load file")
     local psplits = string.split(luaPath,"/")
-    return kernel:startProcess({priority=0, coroutines={coroutine.create(f)}, cwd=table.concat(psplits, "/", 1, #psplits-1).."/", resumeAfter=-1, args=argString})
+    return kernel:startProcess({priority=0, coroutines={coroutine.create(f)}, cwd=table.concat(psplits, "/", 1, #psplits-1).."/", resumeAfter=-1, args=argString or ""})
 end
 
 ---@param processHandle processHandle
@@ -260,6 +260,71 @@ function kernel:waitForProcessExit(processHandle)
         sleep(5)
     end
     return processHandle.result
+end
+
+---@returns string
+function kernel:getCurrentWorkingDirectory()
+    return kernel:getCurrentProcess().cwd
+end
+
+local function stringSplit(s, delim)
+    local rv = {""}
+    assert(delim ~= nil and #delim == 1, "delim must be of len 1")
+    local j = 1
+    for i = 1, #s do
+        local c = s:sub(i,i)
+        if c == delim then
+            table.insert(rv, "")
+            j = j + 1
+        else
+            --print("rv", rv[j], tostring(c))
+            rv[j] = rv[j] .. c
+        end
+    end
+    return rv
+end
+
+---@param s string
+---@return string
+local function normalizePath(s)
+    local splitted = stringSplit(s, "/")
+    local rv = ""
+    local skipCnt = 0
+    for i = #splitted, 1, -1 do
+        local seg = splitted[i]
+        if seg == ".." then
+            skipCnt = skipCnt + 1
+        elseif seg ~= "." then
+            if skipCnt > 0 then
+                skipCnt = skipCnt -1
+            else
+                if i == #splitted then
+                    rv = seg
+                else
+                    rv = seg .. "/" .. rv
+                end
+            end
+        end
+        --print("seg", seg, rv)
+    end
+    
+    if skipCnt > 0 then
+        return "/"
+    end
+    return rv
+end
+
+---@param newCwd string
+function kernel:setCurrentWorkingDirectory(newCwd)
+    newCwd = newCwd or "/"
+    if newCwd:sub(1,1) ~= "/" then
+        newCwd = "/" .. newCwd
+    end
+    if newCwd:sub(#newCwd,#newCwd) ~= "/" then
+        newCwd = newCwd .. "/"
+    end
+
+    kernel:getCurrentProcess().cwd = normalizePath(newCwd)
 end
 
 return kernel
