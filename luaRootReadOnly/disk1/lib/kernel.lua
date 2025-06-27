@@ -71,6 +71,7 @@ end
 local kernelRootCoroutine = coroutine.running()
 print("main was: ", coroutine.running())
 local sleepRaw = sleep
+local run_skipCurrentSleep = false
 function kernel:run()
     --kernel:startProcess({priority=0, coroutine=coroutine.create(eventPump), cwd="/"})
     
@@ -204,6 +205,7 @@ function kernel:run()
             end
 
             processIdleTimeLeft = math.min(1, earliestResume and (earliestResume-os_time()) or 0) -- pause process queue execution at most for one second
+            if run_skipCurrentSleep then processIdleTimeLeft = 0 end
         end
         
         local sleepAmount = 0.05
@@ -242,6 +244,7 @@ function kernel:startProcess(proc)
     local handle = {pid=pid, result = nil, state="running"}
     processData.handle = handle
     table.insert(processes, processData)
+    run_skipCurrentSleep = true
     return handle
 end
 
