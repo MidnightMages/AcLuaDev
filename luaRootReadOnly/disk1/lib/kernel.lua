@@ -171,7 +171,7 @@ function kernel:run()
                                 proc.handle.result = rv
                                 proc.handle.state = "dead"
                                 table.insert(deadProcesses, procIdx)
-                                print("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  "has exited")
+                                print("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  " has exited")
                             end
                             -- remove the dead coroutine
                             --print("rem func", table.remove)
