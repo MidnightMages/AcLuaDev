@@ -2,6 +2,8 @@ package acluadev;
 
 import acluadev.fs.LuaFilesystem;
 import acluadev.fs.SandboxedFs;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
 import dev.asdf00.jluavm.runtime.types.AtomicLuaFunction;
@@ -164,7 +166,13 @@ public class Main {
     public static void main(String[] args) throws IOException {
         console = Console.createConsole();
         var fs = FileSystems.getDefault();
-        var watchPath = Path.of(System.getProperty("user.dir"), "luaRootReadOnly");
+        var projDir = System.getProperty("user.dir");
+        var configPath = Path.of(projDir, "config.json");
+        if (!Files.exists(configPath)) {
+            Files.writeString(configPath, new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(new Config("lua/AdvancedOS")));
+        }
+        var cfg = new ObjectMapper().readValue(Files.readString(configPath), Config.class);
+        var watchPath = Path.of(projDir, cfg.luaRootDirectory());
         if (!Files.exists(watchPath)) {
             println(("ERROR: Lua root path was determined as '%s', but this path does not exist. " +
                      "Please create this folder manually if necessary.").formatted(watchPath.toString()));

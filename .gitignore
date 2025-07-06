@@ -28,5 +28,7 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-!/luaRootReadonly/**
-/luaRootReadonly/.vscode/**
+!/lua/**
+/lua/**/.vscode/
+
+/config.json
