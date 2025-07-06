@@ -25,6 +25,14 @@ public class LuaFilesystem {
                 LuaObject.table(fs.getFilesInDirectory(path.getString()).stream().map(LuaFsFile::createAsUserdata).toArray(LuaObject[]::new))).obj());
         rv.set("fileExists", AtomicLuaFunction.forOneResult((vm, path) ->
                 LuaObject.of(fs.fileExists(path.getString()))).obj());
+        rv.set("delete", AtomicLuaFunction.forOneResult((vm, path) -> {
+            if (!fs.fileExists(path.asString())) {
+                vm.error(LuaObject.of("File '%s' does not exist".formatted(path.asString())));
+                return null;
+            }
+
+            return LuaObject.TRUE;
+        }).obj());
         return rv;
     }
 }
