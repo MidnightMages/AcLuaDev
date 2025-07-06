@@ -109,8 +109,7 @@ public class Main {
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
             var fs = new SandboxedFs();
-            var disk = "disk" + i;
-            var dp = luaRootDir.resolve(disk);
+            var dp = luaRootDir.resolve("disk" + i);
             try {
                 if (!Files.isDirectory(dp))
                     Files.createDirectory(dp);
@@ -121,7 +120,7 @@ public class Main {
             fss.add(fs);
 
             var t = LuaObject.table();
-            t.set("id", LuaObject.of("diskid_" + disk));
+            t.set("id", LuaObject.of("disk_" + i));
             t.set("__UDATA_id", LuaObject.of(i));
             fsReg.addFunctionsToTable(t);
             allComponents.add(new LuaComponent("disk", t));

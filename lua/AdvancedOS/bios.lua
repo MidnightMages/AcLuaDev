@@ -1,7 +1,7 @@
 _G.components = {}
 local idx = 1
 for t, a in component.list() do
-   print(t, a)
+   print(t, a.id)
    if t == "disk" then
       --print("has boot file? ", a.fileExists("boot.lua"))
       if a:fileExists("boot.lua") then
