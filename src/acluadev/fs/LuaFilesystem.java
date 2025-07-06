@@ -30,7 +30,6 @@ public class LuaFilesystem {
                 vm.error(LuaObject.of("File '%s' does not exist".formatted(path.asString())));
                 return null;
             }
-
             return LuaObject.TRUE;
         }).obj());
         return rv;
