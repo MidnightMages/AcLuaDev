@@ -23,8 +23,8 @@ public class SandboxedFs {
         return root.getFile(trimPath(s));
     }
 
-    public Collection<VirtualFile> getFilesInDirectory(String path) {
-        return root.getDirectory(trimPath(path)).files.values();
+    public Collection<String> getFilesInDirectory(String path) {
+        return root.getDirectory(trimPath(path)).files.keySet();
     }
 
     public boolean fileExists(String path) {

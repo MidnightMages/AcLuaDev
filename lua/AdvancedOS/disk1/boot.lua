@@ -70,7 +70,7 @@ _G.package = {}
 package.path = "/lib/?.lua"
 package.loaded = {}
 -- init filesystem
-package.loaded.filesystem = assert(load(bootDrive.open("/lib/filesystem.lua").read())(), "failed to initialize filesystem")
+package.loaded.filesystem = assert(load(bootDrive:open("/lib/filesystem.lua").read())(), "failed to initialize filesystem")
 local fs = package.loaded.filesystem -- fs = require("filesystem")
 
 

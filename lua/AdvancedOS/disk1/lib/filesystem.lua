@@ -55,7 +55,7 @@ function fs:readAllText(filePath)
     local p = normalizePath(filePath)
     local drive, prefix = getMountPoint(p)
     local drivePath = "/"..string.sub(p, #prefix+1)
-    return drive.open(drivePath).read()
+    return drive:open(drivePath).read()
 end
 
 function fs:fileExists(filePath)
@@ -63,7 +63,7 @@ function fs:fileExists(filePath)
     local p = normalizePath(filePath)
     local drive, prefix = getMountPoint(p)
     local drivePath = "/"..string.sub(p, #prefix+1)
-    return drive.fileExists(drivePath)
+    return drive:fileExists(drivePath)
 end
 
 function fs:init(bootDrive)

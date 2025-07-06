@@ -1,7 +1,7 @@
 package acluadev.fs;
 
+import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.internals.LuaVM_RT;
-import dev.asdf00.jluavm.runtime.types.AtomicLuaFunction;
 import dev.asdf00.jluavm.runtime.types.ILuaUserData;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
@@ -16,11 +16,11 @@ public class LuaFsFile implements ILuaUserData {
         return new LuaObject[]{LuaObject.of(f.readAllText())};
     }
 
-    static LuaObject createAsUserdata(VirtualFile f){
+    static LuaObject createAsUserdata(VirtualFile f) {
         var inst = new LuaFsFile(f);
         //var rv = LuaObject.of(inst); // TODO wait for userdata support
         var rv = LuaObject.table();
-        rv.set("read", AtomicLuaFunction.vaForManyResults(inst::read).obj());
+        rv.set("read", AtomicLuaFunction.vaForManyResults(null, inst::read).obj());
         return rv;
     }
 }

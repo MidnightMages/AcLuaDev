@@ -4,9 +4,9 @@ for t, a in component.list() do
    print(t, a)
    if t == "disk" then
       --print("has boot file? ", a.fileExists("boot.lua"))
-      if a.fileExists("boot.lua") then
+      if a:fileExists("boot.lua") then
          print("Bootable file found on disk #"..idx.." - reading...")
-         local code = a.open("boot.lua").read()
+         local code = a:open("boot.lua").read()
          print("Compiling boot.lua...")
          --print(code, type(code))
          _G.bootDrive = a
