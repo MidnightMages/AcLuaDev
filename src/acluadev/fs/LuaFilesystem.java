@@ -30,7 +30,7 @@ public class LuaFilesystem {
                 vm.error(LuaObject.of("File '%s' does not exist".formatted(path.asString())));
                 return null;
             }
-            return LuaObject.TRUE;
+            return LuaObject.of(fs.tryDeleteFile(path.asString()));
         }).obj());
         return rv;
     }

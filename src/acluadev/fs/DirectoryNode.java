@@ -19,6 +19,11 @@ public class DirectoryNode {
         return splitted.length == 1 ? files.get(splitted[0]) : childDirs.get(splitted[0]).getFile(splitted[1]);
     }
 
+    public boolean tryDeleteFile(String s) {
+        var splitted = s.split("/", 2);
+        return splitted.length == 1 ? files.remove(splitted[0]) != null : childDirs.get(splitted[0]).tryDeleteFile(splitted[1]);
+    }
+
     public DirectoryNode getDirectory(String s) {
         var splitted = s.split("/", 2);
         return splitted.length == 1 ? childDirs.get(splitted[0]) : childDirs.get(splitted[0]).getDirectory(splitted[1]);

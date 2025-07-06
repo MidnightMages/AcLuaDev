@@ -30,4 +30,8 @@ public class SandboxedFs {
     public boolean fileExists(String path) {
         return root.fileExists(trimPath(path));
     }
+
+    public boolean tryDeleteFile(String s) {
+        return root.tryDeleteFile(trimPath(s));
+    }
 }
