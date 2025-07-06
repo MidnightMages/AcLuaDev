@@ -104,7 +104,7 @@ public class Main {
 
         var fss = new ArrayList<SandboxedFs>();
         var lfs = new LuaFilesystem();
-        var fsReg = new ScopedMixedStateFunctionRegistry("testHarness_internal");
+        var fsReg = new ScopedMixedStateFunctionRegistry("testHarness_internal_fs");
         lfs.registerFuncs(fsReg);
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
@@ -128,6 +128,9 @@ public class Main {
         lfs.init(fss.toArray(SandboxedFs[]::new));
 
         componentRegistry.register("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
+        componentRegistry.register("getFirst", AtomicLuaFunction.forOneResult(greg, (vm, type) ->
+                allComponents.stream().filter(x -> x.type().equals(type.asString())).map(LuaComponent::comp).findFirst().orElse(LuaObject.NIL))
+        );
         computerRegistry.register("getMachineEvent", AtomicLuaFunction.forManyResults(greg, vm -> {
             var e = eventQueue.getQueuedEventOrNull();
             return e == null ? new LuaObject[]{LuaObject.NIL} : e;
@@ -157,6 +160,17 @@ public class Main {
                 throw new RuntimeException(e);
             }
         }));
+
+        var virtualBootFile = new String[1];
+        virtualBootFile[0] = bootFile;
+        var biosReg = new ScopedMixedStateFunctionRegistry("testHarness_internal_bios");
+        biosReg.register("getData", AtomicLuaFunction.forOneResult(greg, (vm, device) -> LuaObject.of(virtualBootFile[0])));
+        biosReg.register("setData", AtomicLuaFunction.forZeroResults(greg, (vm, device, x) -> virtualBootFile[0] = x.getString()));
+        var bTable = LuaObject.table();
+        biosReg.addFunctionsToTable(bTable);
+        bTable.set("id", LuaObject.of("bios"));
+        allComponents.add(new LuaComponent("bios", bTable));
+
         // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         greg.addFunctionsToTable(_G);
         var vm = loadMeasured(greg, _G, bootFile);
