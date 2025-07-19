@@ -13,14 +13,13 @@ import dev.asdf00.jluavm.runtime.types.LuaObject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.file.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import static com.sun.nio.file.ExtendedWatchEventModifier.FILE_TREE;
-import static java.nio.file.StandardWatchEventKinds.*;
 
 public class Main {
 
@@ -212,21 +211,24 @@ public class Main {
         }
 
         while (true) {
-            try (WatchService ws = fs.newWatchService()) {
-                watchPath.register(ws, new WatchEvent.Kind[]{ENTRY_MODIFY, ENTRY_CREATE, ENTRY_DELETE}, FILE_TREE);
-                lvmThread = new Thread(() -> startLuaVm(watchPath));
-                console.clear();
-                lvmThread.start();
-                ws.take();
-                try {
-                    stopLuaVm();
-                } catch (Exception ex) {
-                    println(ex.toString());
-                }
-                Thread.sleep(250);
-            } catch (InterruptedException e) {
+            lvmThread = new Thread(() -> startLuaVm(watchPath));
+            console.clear();
+            lvmThread.start();
+            try {
+                CrossPlatformWatchService.waitForChange(watchPath);
+            } catch (InterruptedException e2) {
                 println("Interrupted");
                 break;
+            }
+            try {
+                stopLuaVm();
+            } catch (Exception ex) {
+                println(ex.toString());
+            }
+            try {
+                Thread.sleep(250);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
 
