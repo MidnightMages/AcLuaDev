@@ -119,6 +119,7 @@ public class Console implements KeyListener {
             lastLineLength = 0;
         }
         catch (BadLocationException e) {
+            textPane.setCaretPosition(d.getLength()); // reset caret to the end position always
             throw new RuntimeException(e);
         }
     }
