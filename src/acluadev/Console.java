@@ -35,8 +35,7 @@ public class Console implements KeyListener {
         try {
             var img = ImageIO.read(getNonNullResourceStream("icon.png"));
             f.setIconImage(img);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
         f.setBackground(Color.BLACK);
@@ -48,8 +47,7 @@ public class Console implements KeyListener {
         Font font;
         try {
             font = Font.createFont(Font.TRUETYPE_FONT, getNonNullResourceStream("DejavuSansMono-5m7L.ttf"));
-        }
-        catch (FontFormatException | IOException e) {
+        } catch (FontFormatException | IOException e) {
             throw new RuntimeException(e);
         }
         textPane.setFont(font.deriveFont(14f));
@@ -117,9 +115,9 @@ public class Console implements KeyListener {
             }
             d.insertString(d.getLength(), sb.toString(), null);
             lastLineLength = 0;
-        }
-        catch (BadLocationException e) {
+
             textPane.setCaretPosition(d.getLength()); // reset caret to the end position always
+        } catch (BadLocationException e) {
             throw new RuntimeException(e);
         }
     }
@@ -132,8 +130,7 @@ public class Console implements KeyListener {
         var d = textPane.getStyledDocument();
         try {
             d.remove(0, d.getLength());
-        }
-        catch (BadLocationException e) {
+        } catch (BadLocationException e) {
             throw new RuntimeException(e);
         }
     }
