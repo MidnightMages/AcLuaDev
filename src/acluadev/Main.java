@@ -172,6 +172,7 @@ public class Main {
 
         // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         greg.addFunctionsToTable(_G);
+        _G.get("computer").set("nvram", LuaObject.table()); // TODO turn into userdata object that only allows string as key and bool, number, string as values
         var vm = loadMeasured(greg, _G, bootFile);
 
         for (var comp : allComponents)
