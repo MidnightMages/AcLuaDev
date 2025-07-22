@@ -17,8 +17,11 @@ public class SandboxedFs {
     }
 
     private static String trimPath(String s) {
+        while (s.endsWith("/"))
+            s = s.substring(0, s.length() - 1);
         return s.startsWith("/") ? s.substring(1) : s;
     }
+
     public VirtualFile getFile(String s) {
         return root.getFile(trimPath(s));
     }
