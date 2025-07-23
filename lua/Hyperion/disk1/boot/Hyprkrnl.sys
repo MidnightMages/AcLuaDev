@@ -1,6 +1,28 @@
+-- Hyprkrnl Copyright (C) 2025 ASTRONAND
+-- Get boot arguments
 local bootArgs = {...}
 bootArgs=bootArgs[1]
+
+-- Define globals
 _G.kernel={}
+_G.package={}
+_G.package.loaded={}
+
+-- Define locals
+local processes={}
+local nextThreadID=0
+local nextPID=0
+local callbackEvents={}
+local currentPCB={}
+local eventUUID=0
+local driverArgs = {
+    key={},
+    restrictedComponents={"bios","disk"}
+}
+local exitKey={}
+local component = component
+
+-- Make table.deepcopy and table.contains
 function table.deepcopy(tabl)
     local out = {}
     for i,v in pairs(tabl) do
@@ -18,16 +40,16 @@ function table.deepcopy(tabl)
     return out
 end
 
-local function PANIC(err)
-    error(err)
+function table.contains(tabl, query)
+    for i,v in ipairs(tabl) do
+        if v==query then
+            return true
+        end
+    end
+    return false
 end
 
-local processes={}
-local nextPid=0
-local callbackEvents={}
-local currentPCB={}
-local eventUUID=0
-
+-- Make expect
 local function expect(idx, val, typ)
     if type(typ)=="string"then
         typ={typ}
@@ -43,12 +65,23 @@ local function expect(idx, val, typ)
     end
 end
 
+-- My favorite function
+local function PANIC(err)
+    error(err)
+end
+
+-- Kernel library
+function kernel.version()
+    return "Hyprkrnl 1.0.0"
+end
+
 function kernel.createCallbackEvent(event, func)
     expect(1,event,"string")
     expect(2,func,"function")
     if not callbackEvents[event] then
         callbackEvents[event]={}
     end
+    eventUUID=eventUUID+1
     callbackEvents[event][tostring(eventUUID)]={
         func=func,
         process=currentPCB.UUID
@@ -68,59 +101,79 @@ function kernel.triggerCallbackEvent(event, ...)
     end
 end
 
-function kernel.createProcess(func, Oname, Oenv)
-    local name=tostring(nextPid)
-    if Oname then
-        name=Oname
+-- Load drivers
+local files = bootArgs.bootDrive:list("lib/modules")
+for i,v in ipairs(files) do
+    print("compiling "..v)
+    local ok,err = pcall(load(bootArgs.bootDrive:open("lib/modules/"..v):read()), driverArgs)
+    if not ok then
+        PANIC("Driver "..v.." failed to load/execute err:\n"..err)
     end
-    expect(1, func, {"function", "thread"})
-    if type(func)=="thread" then
-        func=coroutine.create(func)
+    local name=v
+    if err.name then
+        name=err.name
+        err.name=nil
     end
-    processes[tostring(nextPid)]={
-        UUID=nextPid,
-        name=name,
-        coro=func,
-        env=Oenv
-    }
-    nextPid=nextPid+1
+    package.loaded[name]=err
+    print("Loaded "..v)
 end
-
-_G.func=function(input,space)
-    if not space then
-        space=""
-    end
-    for i,v in pairs(input) do
-        print(space,i,v)
-        if type(v) == "table" and i ~= "_G" then
-            func(v,space.."    ")
-        end
-    end
-end
-local driverArgs = {
-    key={}
-}
-package={}
-package.loaded={}
-local function loadDrivers()
-    local files = bootArgs.bootDrive:list("lib/modules")
-    for i,v in ipairs(files) do
-        local ok,err = pcall(load(bootArgs.bootDrive:open("lib/modules/"..v).read()), driverArgs)
-        if not ok then
-            PANIC("Driver "..v.." failed to load/execute")
-        end
-        local name=v
-        if err.name then
-            name=err.name
-            err.name=nil
-        end
-        package.loaded[name]=err
-        print("Loaded "..v)
-    end
-end
-loadDrivers()
+files = nil
 local fs=package.loaded.filesystem
+_G.require=package.loaded.require
+local thread={}
 
+function thread.getTCB(func, name)
+    nextThreadID=nextThreadID+1
+    local threadID=tostring(nextThreadID)
+    if name then
+        threadID=name
+    end
+    return {
+        UUID=nextThreadID,
+        name=threadID,
+        coro=coroutine.create(func)
+    }
+end
+
+function thread.add(func, name)
+    nextThreadID=nextThreadID+1
+    local threadID=tostring(nextThreadID)
+    if name and not currentPCB[name] then
+        threadID=name
+    end
+    currentPCB.threads[threadID]={
+        UUID=nextThreadID,
+        name=threadID,
+        coro=coroutine.create(func)
+    }
+    return {
+        terminate=function()
+            currentPCB.threads[threadID]=nil
+        end
+    }
+end
+package.loaded.thread=thread
+
+function kernel.createProcessFromFunc(func, name)
+    nextPID=nextPID+1
+    local PID=tostring(nextPID)
+    if name then
+        PID=name
+    end
+    processes[tostring(nextPID)]={
+        UUID=nextPID,
+        name=PID,
+        threads={
+            main=thread.getTCB(func, "main")
+        }
+    }
+end
+
+function kernel.exit()
+    coroutine.yield("exit")
+end
+
+-- Other QOL functions
 function loadfile(path, OENV)
     local env = table.deepcopy(_G)
     if OENV then
@@ -132,13 +185,83 @@ function loadfile(path, OENV)
     return assert(load(file, path, "t", env))
 end
 
+function kernel.createProcessFromFile(path)
+    kernel.createProcessFromFunc(loadfile(path), path)
+end
+
 function dofile(path, ...)
     return assert(loadfile(path)(...))
 end
 
-function kernel.createProcessFromFile(path)
-    local env = table.deepcopy(_G)
-    kernel.createProcess(loadfile(path, env), path, env)
+local function main()
+    local function eventHandler()
+        while true do
+            print("eventHandler")
+            local event={computer.getMachineEvent()}
+            local execute=callbackEvents[event[1]]
+            if execute~=nil then
+                for i,v in pairs(execute) do
+                    print(table.unpack(event))
+                    pcall(v,table.unpack(event,2))
+                end
+            end
+            coroutine.yield()
+        end
+    end
+    thread.add(eventHandler, "eventHandler")
+    while true do
+        print("Hyprkrnl")
+        coroutine.yield()
+        break
+    end
 end
+local function funcg()
+    func(_G)
+end
+local function m()
+    while true do
+        local l=0
+        while l<10 do
+            l=l+1
+            print("shell")
+            coroutine.yield()
+        end
+        print("exiting shell")
+        kernel.createProcessFromFunc(funcg)
+        kernel.exit()
+    end
+end
+_G.func=function(input,space)
+    if not space then
+        space=""
+    end
+    for i,v in pairs(input) do
+        print(space,i,v)
+        if type(v) == "table" and i ~= "_G" then
+            func(v,space.."    ")
+        end
+    end
+end
+kernel.createProcessFromFunc(main, "Hyprkrnl")
+kernel.createProcessFromFunc(m, "shell")
 
-func(_G)
+-- Main
+while true do
+    for i,v in pairs(processes) do
+        currentPCB=v
+        if currentPCB.UUID~=nil then
+            for i2, v2 in pairs(currentPCB.threads) do
+                local ret={coroutine.resume(v2.coro)}
+                if ret[1]=="exit" or coroutine.status(v2.coro)=="dead" then
+                    if i2=="main" then
+                        currentPCB=nil
+                    else
+                        currentPCB.threads[i2]=nil
+                    end
+                end
+                sleep(0.1)
+            end
+            processes[i]=currentPCB
+        end
+    end
+end
