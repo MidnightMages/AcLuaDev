@@ -4,7 +4,7 @@ local data = {
         ["2"]="AdvancedOS"
     },
     bootCfg={
-        Hyperion={bootDrive="disk_1",bootPath="boot/Hyprkrnl.sys",globals={test="globals work"}},
+        Hyperion={bootDrive="disk_1",bootPath="boot/Hyprkrnl.sys",globals={}},
         AdvancedOS={bootDrive="disk_2",bootPath="boot.lua",globals={}}
     }
 }
