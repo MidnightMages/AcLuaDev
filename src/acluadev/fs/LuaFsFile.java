@@ -16,11 +16,21 @@ public class LuaFsFile implements ILuaUserData {
         return new LuaObject[]{LuaObject.of(f.readAllText())};
     }
 
+    private void write(LuaVM_RT vm, LuaObject x) {
+        f.writeAllText(x.asString());
+    }
+
+    private void append(LuaVM_RT vm, LuaObject x) {
+        f.appendAllText(x.asString());
+    }
+
     static LuaObject createAsUserdata(VirtualFile f) {
         var inst = new LuaFsFile(f);
         //var rv = LuaObject.of(inst); // TODO wait for userdata support
         var rv = LuaObject.table();
         rv.set("read", AtomicLuaFunction.vaForManyResults(null, inst::read).obj());
+        rv.set("write", AtomicLuaFunction.forZeroResults(null, inst::write).obj());
+        rv.set("append", AtomicLuaFunction.forZeroResults(null, inst::append).obj());
         return rv;
     }
 }
