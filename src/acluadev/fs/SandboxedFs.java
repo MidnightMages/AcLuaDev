@@ -26,6 +26,10 @@ public class SandboxedFs {
         return root.getFile(trimPath(s));
     }
 
+    public DirectoryNode getDirectory(String s) {
+        return root.getDirectory(trimPath(s));
+    }
+
     public Collection<String> getFilesInDirectory(String path) {
         return root.getDirectory(trimPath(path)).files.keySet();
     }
@@ -35,7 +39,7 @@ public class SandboxedFs {
     }
 
     public boolean fileExists(String path) {
-        return root.fileExists(trimPath(path));
+        return getFile(path) != null;
     }
 
     public boolean tryDeleteFile(String s) {

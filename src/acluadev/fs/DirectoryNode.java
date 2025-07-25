@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Optional;
 
 public class DirectoryNode {
     final String name;
@@ -16,7 +17,7 @@ public class DirectoryNode {
 
     public VirtualFile getFile(String s) {
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? files.get(splitted[0]) : childDirs.get(splitted[0]).getFile(splitted[1]);
+        return splitted.length == 1 ? files.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x->x.getFile(splitted[1])).orElse(null);
     }
 
     public boolean tryDeleteFile(String s) {
@@ -29,12 +30,7 @@ public class DirectoryNode {
             return this;
 
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? childDirs.get(splitted[0]) : childDirs.get(splitted[0]).getDirectory(splitted[1]);
-    }
-
-    public boolean fileExists(String s) {
-        var splitted = s.split("/", 2);
-        return splitted.length == 1 ? files.containsKey(splitted[0]) : (childDirs.containsKey(splitted[0]) && childDirs.get(splitted[0]).fileExists(splitted[1]));
+        return splitted.length == 1 ? childDirs.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x->x.getDirectory(splitted[1])).orElse(null);
     }
 
     public DirectoryNode addChildDir(String name) {

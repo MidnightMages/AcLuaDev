@@ -42,7 +42,11 @@ public class LuaFilesystem {
         }));
         reg.register("fileExists", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
-            return LuaObject.of(fs.fileExists(path.getString()));
+            return LuaObject.of(fs.getFile(path.getString()) != null);
+        }));
+        reg.register("directoryExists", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
+            var fs = getFsFromDisk(disk);
+            return LuaObject.of(fs.getDirectory(path.getString()) != null);
         }));
         reg.register("delete", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
