@@ -75,5 +75,13 @@ public class LuaFilesystem {
                 throw new IllegalStateException("somehow file deletion failed after copying");
             }
         }));
+        reg.register("getSize", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
+            var fs = getFsFromDisk(disk);
+            if (!fs.fileExists(path.asString())) {
+                vm.error(LuaObject.of("File '%s' does not exist".formatted(path.asString())));
+                return null;
+            }
+            return LuaObject.of(fs.getFile(path.asString()).readAllText().length());
+        }));
     }
 }
