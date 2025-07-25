@@ -25,6 +25,9 @@ public class DirectoryNode {
     }
 
     public DirectoryNode getDirectory(String s) {
+        if (s.isEmpty())
+            return this;
+
         var splitted = s.split("/", 2);
         return splitted.length == 1 ? childDirs.get(splitted[0]) : childDirs.get(splitted[0]).getDirectory(splitted[1]);
     }
