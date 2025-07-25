@@ -13,6 +13,10 @@ import dev.asdf00.jluavm.runtime.types.LuaObject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -125,6 +129,29 @@ public class Main {
             allComponents.add(new LuaComponent("disk", t));
         }
         lfs.init(fss.toArray(SandboxedFs[]::new));
+        // internet functionality
+        var internetReg = new ScopedMixedStateFunctionRegistry("testharness_internal_internet");
+        var internetComp = LuaObject.table();
+        internetReg.register("get", AtomicLuaFunction.forOneResult(internetReg, (vm, self, luaUrl) -> {
+            var url = URI.create(luaUrl.asString());
+            var req = HttpRequest.newBuilder(url).GET().build();
+            //noinspection resource
+            var client = HttpClient.newHttpClient();
+
+            try {
+                var resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+                var rv = LuaObject.table();
+                rv.set("status", LuaObject.of(resp.statusCode()));
+                rv.set("body", LuaObject.of(resp.body()));
+                return rv;
+            } catch (IOException | InterruptedException e) {
+                System.out.printf("Exception during http request to %s: %s%n", url, e);
+                vm.error(LuaObject.of("An error has occurred, check the log for more information"));
+                return null;
+            }
+        }));
+        internetReg.addFunctionsToTable(internetComp);
+        allComponents.add(new LuaComponent("internet", internetComp));
 
         componentRegistry.register("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
         componentRegistry.register("getFirst", AtomicLuaFunction.forOneResult(greg, (vm, type) ->
