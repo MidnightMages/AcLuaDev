@@ -31,6 +31,12 @@ local function resolve(path)
     return drive, path
 end
 
+function fs.addMountPoint(path, HardwareDir)
+    if disks[HardwareDir] then
+        mounts[path]=HardwareDir
+    end
+end
+
 function fs.open(path)
     UUID=UUID+1
     local id=UUID
