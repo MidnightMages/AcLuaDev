@@ -30,6 +30,10 @@ public class SandboxedFs {
         return root.getDirectory(trimPath(path)).files.keySet();
     }
 
+    public Collection<String> getDirectoriesInDirectory(String path) {
+        return root.getDirectory(trimPath(path)).childDirs.keySet();
+    }
+
     public boolean fileExists(String path) {
         return root.fileExists(trimPath(path));
     }

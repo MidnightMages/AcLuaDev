@@ -4,6 +4,8 @@ import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.api.functions.MixedStateFunctionRegistry;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
+import java.util.stream.Stream;
+
 public class LuaFilesystem {
     private SandboxedFs[] fss;
 
@@ -34,7 +36,9 @@ public class LuaFilesystem {
         }));
         reg.register("list", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
-            return LuaObject.tableFromArray(fs.getFilesInDirectory(path.getString()).stream().map(LuaObject::of).toArray(LuaObject[]::new));
+            var files = fs.getFilesInDirectory(path.getString());
+            var dirs = fs.getDirectoriesInDirectory(path.getString());
+            return LuaObject.tableFromArray(Stream.concat(files.stream(), dirs.stream().map(x->x+"/")).map(LuaObject::of).toArray(LuaObject[]::new));
         }));
         reg.register("fileExists", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
