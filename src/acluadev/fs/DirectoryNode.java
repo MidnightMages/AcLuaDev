@@ -17,7 +17,18 @@ public class DirectoryNode {
 
     public VirtualFile getFile(String s) {
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? files.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x->x.getFile(splitted[1])).orElse(null);
+        return splitted.length == 1 ? files.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getFile(splitted[1])).orElse(null);
+    }
+
+    public VirtualFile getOrCreateFile(String s) {
+        var splitted = s.split("/", 2);
+        var fileObject = splitted.length == 1 ?
+                files.get(splitted[0]) :
+                Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getOrCreateFile(splitted[1])).orElse(null);
+        if (fileObject == null)
+            fileObject = new VirtualFile("");
+        this.files.put(splitted[0], fileObject);
+        return fileObject;
     }
 
     public boolean tryDeleteFile(String s) {
@@ -30,7 +41,7 @@ public class DirectoryNode {
             return this;
 
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? childDirs.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x->x.getDirectory(splitted[1])).orElse(null);
+        return splitted.length == 1 ? childDirs.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getDirectory(splitted[1])).orElse(null);
     }
 
     public DirectoryNode addChildDir(String name) {

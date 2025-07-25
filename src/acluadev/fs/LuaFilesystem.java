@@ -56,5 +56,13 @@ public class LuaFilesystem {
             }
             return LuaObject.of(fs.tryDeleteFile(path.asString()));
         }));
+        reg.register("copy", AtomicLuaFunction.forZeroResults(reg, (vm, disk, pathA, pathB) -> {
+            var fs = getFsFromDisk(disk);
+            if (!fs.fileExists(pathA.asString())) {
+                vm.error(LuaObject.of("File '%s' does not exist".formatted(pathA.asString())));
+                return;
+            }
+            fs.getOrCreateFile(pathB.asString()).writeAllText(fs.getFile(pathA.asString()).readAllText());
+        }));
     }
 }

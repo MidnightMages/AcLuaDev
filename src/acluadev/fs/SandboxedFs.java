@@ -26,6 +26,10 @@ public class SandboxedFs {
         return root.getFile(trimPath(s));
     }
 
+    public VirtualFile getOrCreateFile(String s) {
+        return root.getOrCreateFile(trimPath(s));
+    }
+
     public DirectoryNode getDirectory(String s) {
         return root.getDirectory(trimPath(s));
     }
