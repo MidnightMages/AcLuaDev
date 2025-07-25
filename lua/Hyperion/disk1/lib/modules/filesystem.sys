@@ -1,2 +1,55 @@
+local args={...}
+args=args[1]
 local fs={name="filesystem"}
+local openFiles={}
+local UUID=-1
+local disks={}
+local mounts={}
+local bootDrive=args.bootDrive
+
+for t, o in component.list() do
+    if t=="disk" then
+        if o.id==bootDrive.id then
+        else disks[o.id]=o end
+    end
+end
+for i,v in pairs(mounts) do
+    print(i,v)
+end
+
+local function resolve(path)
+    if string.sub(path,1,1)~="/" then
+        path="/"..path
+    end
+    local drive=bootDrive
+    for i,v in pairs(mounts) do
+        if string.hasPrefix(path,i) then
+            drive=disks[v]
+            path=string.getSuffix(path,i)
+        end
+    end
+    return drive, path
+end
+
+function fs.open(path)
+    UUID=UUID+1
+    local id=UUID
+    local drive, newPath=resolve(path)
+    openFiles[id]=drive:open(newPath)
+    return {
+        readAll=function()
+            return openFiles[id].read()
+        end,
+        append=function(str)
+            return openFiles[id].append(str)
+        end,
+        write=function(str)
+            return openFiles[id].write(str)
+        end,
+        close=function()
+            openFiles[id]=nil
+        end
+    }
+end
+
 return fs
