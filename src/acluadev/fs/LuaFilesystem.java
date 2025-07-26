@@ -26,9 +26,39 @@ public class LuaFilesystem {
     public void registerFuncs(MixedStateFunctionRegistry reg) {
         // TODO return a userdata filehandle table
 
-        reg.register("open", AtomicLuaFunction.forOneResult(reg, (vm, disk, filename) -> {
+        reg.register("open", AtomicLuaFunction.forOneResult(reg, (vm, disk, fileNameL, autoCreate) -> {
             var fs = getFsFromDisk(disk);
-            return LuaFsFile.createAsUserdata(fs.getOrCreateFile(filename.asString()));
+            if (!autoCreate.isBoolean() && !autoCreate.isNil()) {
+                vm.error(LuaObject.of("Arg #2 must be bool or nil"));
+                return null;
+            }
+
+            var fileName = fileNameL.asString();
+            if (fileName.startsWith("/"))
+                fileName = fileName.substring(1);
+
+            if (fileName.endsWith("/")) {
+                vm.error(LuaObject.of("Filename cannot end with a slash"));
+                return null;
+            }
+
+            var fileExists = fs.fileExists(fileName);
+            if (!fileExists) {
+                if (!autoCreate.isTruthy()) { // if no autocreate and doesnt exist, then we throw an error
+                    vm.error(LuaObject.of("File '%s' does not exist".formatted(fileName)));
+                    return null;
+                } else {// if we will be creating a new file, check the existence of the parent folder
+                    var lastSlash = fileName.lastIndexOf('/');
+                    if (lastSlash != -1) { // only care about paths that contain a slash, otherwise this is in the root folder
+                        var folderPath = fileName.substring(0, lastSlash);
+                        if (fs.getDirectory(folderPath) == null) {
+                            vm.error(LuaObject.of("Parent folder '%s' of '%s' does not exist".formatted(folderPath, fileName)));
+                            return null;
+                        }
+                    }
+                }
+            }
+            return LuaFsFile.createAsUserdata(fs.getOrCreateFile(fileName));
         }));
         reg.register("list", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
