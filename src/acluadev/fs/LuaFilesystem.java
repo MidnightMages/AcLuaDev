@@ -28,11 +28,7 @@ public class LuaFilesystem {
 
         reg.register("open", AtomicLuaFunction.forOneResult(reg, (vm, disk, filename) -> {
             var fs = getFsFromDisk(disk);
-            if (!fs.fileExists(filename.asString())) {
-                vm.error(LuaObject.of("File '%s' does not exist".formatted(filename.asString())));
-                return null;
-            }
-            return LuaFsFile.createAsUserdata(fs.getFile(filename.asString()));
+            return LuaFsFile.createAsUserdata(fs.getOrCreateFile(filename.asString()));
         }));
         reg.register("list", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
