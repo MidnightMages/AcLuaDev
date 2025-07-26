@@ -34,6 +34,10 @@ public class SandboxedFs {
         return root.getDirectory(trimPath(s));
     }
 
+    public DirectoryNode createDirectoryAndParents(String s) {
+        return root.createDirectoryAndParents(trimPath(s));
+    }
+
     public Collection<String> getFilesInDirectory(String path) {
         return root.getDirectory(trimPath(path)).files.keySet();
     }

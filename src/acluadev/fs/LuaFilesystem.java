@@ -34,7 +34,7 @@ public class LuaFilesystem {
             var fs = getFsFromDisk(disk);
             var files = fs.getFilesInDirectory(path.getString());
             var dirs = fs.getDirectoriesInDirectory(path.getString());
-            return LuaObject.tableFromArray(Stream.concat(files.stream(), dirs.stream().map(x->x+"/")).map(LuaObject::of).toArray(LuaObject[]::new));
+            return LuaObject.tableFromArray(Stream.concat(files.stream(), dirs.stream().map(x -> x + "/")).map(LuaObject::of).toArray(LuaObject[]::new));
         }));
         reg.register("fileExists", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
@@ -43,6 +43,11 @@ public class LuaFilesystem {
         reg.register("directoryExists", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
             return LuaObject.of(fs.getDirectory(path.getString()) != null);
+        }));
+        reg.register("makeDirectory", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
+            var fs = getFsFromDisk(disk);
+            fs.createDirectoryAndParents(path.asString());
+            return LuaObject.nil();
         }));
         reg.register("delete", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
@@ -67,7 +72,7 @@ public class LuaFilesystem {
                 return;
             }
             fs.getOrCreateFile(pathB.asString()).writeAllText(fs.getFile(pathA.asString()).readAllText());
-            if(!fs.tryDeleteFile(pathA.asString())) {
+            if (!fs.tryDeleteFile(pathA.asString())) {
                 throw new IllegalStateException("somehow file deletion failed after copying");
             }
         }));
