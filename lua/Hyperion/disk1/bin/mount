@@ -1,0 +1,16 @@
+local fs=require("filesystem")
+local args={...}
+local function printUsage()
+    print("mount \"Disk\" \"Path\"")
+end
+
+if not fs.isDrive(args[1]) then
+    print("E")
+    printUsage()
+elseif args[2]==nil then
+    printUsage()
+elseif fs.exists(args[2]) then
+    print("Cannot mount to existing path")
+else
+    fs.addMountPoint(args[2],args[1])
+end

@@ -1,20 +1,22 @@
+-- Copyright (C) 2025 ASTRONAND
 local args={...}
 args=args[1]
 local fs={name="filesystem"}
+local kernel=require("kernel")
 local openFiles={}
-local UUID=-1
 local disks={}
 local mounts={}
 local bootDrive=args.bootDrive
+local virtFiles={}
 
 for t, o in component.list() do
     if t=="disk" then
         if o.id==bootDrive.id then
         else disks[o.id]=o end
+        if o.id==bootDrive.id then
+        mounts[o.id]="/" else
+        mounts[o.id]=0 end
     end
-end
-for i,v in pairs(mounts) do
-    print(i,v)
 end
 
 local function resolve(path)
@@ -23,24 +25,120 @@ local function resolve(path)
     end
     local drive=bootDrive
     for i,v in pairs(mounts) do
-        if string.hasPrefix(path,i) then
-            drive=disks[v]
-            path=string.getSuffix(path,i)
+        if type(v)=="number" or i==bootDrive.id then
+            goto skip
         end
+        if string.hasPrefix(path,v) then
+            drive=disks[i]
+            path=string.getSuffix(path,v)
+            break
+        end
+        ::skip::
     end
     return drive, path
 end
 
+local function addToList(plist,list,endVal)
+    return addToList(plist[list[1]],{table.unpack(list,2),endVal})
+end
+
+function fs.createVurtualFile(path, contents)
+    local tokens=string.split(path,"/")
+    local file={table.unpack(tokens,2,#tokens)}
+    virtFiles=addToList(virtFiles,file,contents)
+end
+
 function fs.addMountPoint(path, HardwareDir)
-    if disks[HardwareDir] then
-        mounts[path]=HardwareDir
+    if string.sub(path,1,1)~="/" then
+        path="/"..path
+    end
+    if string.sub(path,#path)=="/" then
+        path=string.sub(path,1,#path-1)
+    end
+    if table.hasKey(disks,HardwareDir) then
+        mounts[HardwareDir]=path
     end
 end
 
-function fs.open(path)
-    UUID=UUID+1
-    local id=UUID
+function fs.removeMountPoint(HardwareDir)
+    if table.hasKey(disks,HardwareDir) then
+        mounts[HardwareDir]=0
+    end
+end
+
+function fs.getDiskBlocks()
+    local i=0
+    local tmp={}
+    for i,v in pairs(mounts) do
+        if type(v)=="number" then
+            tmp[#tmp+1]={dr=i,ph=""}
+        else
+            tmp[#tmp+1]={dr=i,ph=v}
+        end
+    end
+    return function()
+        i=i+1
+        return tmp[i].dr, tmp[i].ph
+    end
+end
+
+function fs.isDrive(HardwareDir)
+    return table.hasKey(disks,HardwareDir)
+end
+
+function fs.list(path)
     local drive, newPath=resolve(path)
+    if newPath=="" then
+        newPath="/"
+    end
+    return drive:list(newPath)
+end
+
+function fs.isDir(path)
+    local drive, newPath=resolve(path)
+    return drive:directoryExists(newPath)
+end
+
+function fs.exists(path)
+    local drive, newPath=resolve(path)
+    return drive:directoryExists(newPath) or drive:fileExists(newPath)
+end
+
+function fs.delete(path)
+    local drive, newPath=resolve(path)
+    drive:delete(newPath)
+end
+
+function fs.copy(path, targetPath)
+    local drive, newPath=resolve(path)
+    local drive2, newPath2=resolve(targetPath)
+    drive2:open(newPath2).write(drive:open(newPath).read())
+end
+
+function fs.move(path, targetPath)
+    local drive, newPath=resolve(path)
+    local drive2, newPath2=resolve(targetPath)
+    drive2:open(newPath2).write(drive:open(newPath).read())
+    drive:delete(newPath)
+end
+
+function fs.rename(path, targetPath)
+    local drive, newPath=resolve(path)
+    local drive2, newPath2=resolve(targetPath)
+    drive2:open(newPath2).write(drive:open(newPath).read())
+    drive:delete(newPath)
+end
+
+function fs.getSize(pth)
+    local drive, newPath=resolve(path)
+    return drive:getSize(newPath)
+end
+
+function fs.open(path)
+    local id=kernel.generateUUID()
+    local drive, newPath=resolve(path)
+    if drive:directoryExists(newPath) then error("Cannot open directory") end
+    if not drive:fileExists(newPath) then error("File does not exist") end
     openFiles[id]=drive:open(newPath)
     return {
         readAll=function()

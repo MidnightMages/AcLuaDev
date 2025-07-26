@@ -1,3 +1,6 @@
+-- Copyright (C) 2025 ASTRONAND
+local args={...}
+args=args[1]
 -- Make table.deepcopy and table.contains
 function table.deepcopy(tabl)
     local out = {}
@@ -46,7 +49,7 @@ end
 
 -- Make string extentions
 function string.hasSuffix(str, suffix)
-    return string.sub(str, #str-#suffix+1) == suffix
+    return string.sub(str, #suffix+1) == suffix
 end
 
 function string.hasPrefix(str, prefix)
@@ -54,7 +57,7 @@ function string.hasPrefix(str, prefix)
 end
 
 function string.getSuffix(str, prefix)
-    return string.sub(str, #str-#prefix+1)
+    return string.sub(str, #prefix+1)
 end
 
 function string.getPrefix(str, suffix)
@@ -97,3 +100,34 @@ function string.replace(str, search, replacement)
     end
     return rv .. string.sub(str, consumedLen)
 end
+
+-- Make require and publish
+local package={}
+package.loaded={}
+function require(query)
+    if package.loaded[query] then
+        return package.loaded[query]
+    end
+    local tokens=string.split(query, ".")
+    local path="/lib/"
+    local id=""
+    for i,v in ipairs(tokens) do
+        path=path..v.."/"
+        id=id..v.."."
+    end
+    path=string.sub(path,1,#path)
+    local pack=dofile(path)
+    package.loaded[id]=pack
+    return pack
+end
+_G.require=require
+local function publish(name, lib, key)
+    if key==args.key then goto SkipKey end
+
+    if table.hasKey(package.loaded,name) then
+        error("key already in use")
+    end
+    ::SkipKey::
+    package.loaded[name]=lib
+end
+package.loaded.require={require=require,publish=publish}

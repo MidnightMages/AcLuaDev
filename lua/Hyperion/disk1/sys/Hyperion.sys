@@ -1,0 +1,17 @@
+-- Copyright (C) 2025 ASTRONAND
+-- Define locals
+local os={}
+local publish=require("require").publish
+local kernel=require("kernel")
+
+-- Main os library
+function os.version()
+    return "Hyperion 1.0.0"
+end
+
+publish("os",os)
+kernel.createProcessFromFile("bin/pshell")
+
+while true do
+    sleep(5)
+end

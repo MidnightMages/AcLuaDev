@@ -1,0 +1,63 @@
+-- Copyright (C) 2025 ASTRONAND
+local args={...}
+args=args[1]
+local ipc={name="ipc"}
+local pipes={}
+local ports={}
+local pclient={}
+
+function ipc.openPipe(id)
+    if type(id)~="string" then error("invalid id") end
+    if pipes[id] then
+        error("pipe already created")
+    end
+    pipes[id]={status="open",data=""}
+    return {
+        read=function()
+            return pipes[id].data
+        end,
+        write=function(data)
+            if type(data)~="table" then
+                pipes[id].data=data
+            else error("tables are not permited") end
+        end,
+        close=function()
+            pipes[id]=nil
+        end
+    }
+end
+
+function ipc.getPipe(id)
+    if type(id)~="string" then error("invalid id") end
+    if not pipes[id] then
+        error("pipe does not exist")
+    end
+    if pipes[id].status~="open" then
+        error("pipe taken")
+    end
+    pipes[id].status="closed"
+    local uuid=kernel.generateUUID()
+    pclient[uuid]=true
+    return {
+        read=function()
+            if pclient[uuid] then
+                return pipes[id].data
+            end
+        end,
+        write=function(data)
+            if pclient[uuid] then
+                if type(data)~="table" then
+                    pipes[id].data=data
+                else error("tables are not permited") end
+            end
+        end,
+        exit=function()
+            if pclient[uuid] then
+                pipes[id].status="open"
+                pclient[uuid]=nil
+            end
+        end
+    }
+end
+
+return ipc
