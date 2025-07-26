@@ -25,9 +25,10 @@ public class DirectoryNode {
         var fileObject = splitted.length == 1 ?
                 files.get(splitted[0]) :
                 Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getOrCreateFile(splitted[1])).orElse(null);
-        if (fileObject == null)
+        if (fileObject == null) {
             fileObject = new VirtualFile("");
-        this.files.put(splitted[0], fileObject);
+            this.files.put(splitted[0], fileObject);
+        }
         return fileObject;
     }
 
