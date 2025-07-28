@@ -38,16 +38,6 @@ local function resolve(path)
     return drive, path
 end
 
-local function addToList(plist,list,endVal)
-    return addToList(plist[list[1]],{table.unpack(list,2),endVal})
-end
-
-function fs.createVurtualFile(path, contents)
-    local tokens=string.split(path,"/")
-    local file={table.unpack(tokens,2,#tokens)}
-    virtFiles=addToList(virtFiles,file,contents)
-end
-
 function fs.addMountPoint(path, HardwareDir)
     if string.sub(path,1,1)~="/" then
         path="/"..path
@@ -56,12 +46,24 @@ function fs.addMountPoint(path, HardwareDir)
         path=string.sub(path,1,#path-1)
     end
     if table.hasKey(disks,HardwareDir) then
-        mounts[HardwareDir]=path
+        local drive, newPath=resolve(path)
+        if drive.id==bootDrive.id then
+            if (not bootDrive:directoryExists(path)) and not bootDrive:fileExists(path) then
+                mounts[HardwareDir]=path
+                bootDrive:makeDirectory(path)
+            else
+                error("Cannot overwrite file/directory")
+            end
+        else
+            error("Cannot nest mounts")
+        end
     end
 end
 
 function fs.removeMountPoint(HardwareDir)
     if table.hasKey(disks,HardwareDir) then
+        print("triggered")
+        bootDrive:delete(mounts[HardwareDir])
         mounts[HardwareDir]=0
     end
 end
@@ -84,6 +86,10 @@ end
 
 function fs.isDrive(HardwareDir)
     return table.hasKey(disks,HardwareDir)
+end
+
+function fs.isMounted(HardwareDir)
+    return type(mounts[HardwareDir])=="string"
 end
 
 function fs.list(path)

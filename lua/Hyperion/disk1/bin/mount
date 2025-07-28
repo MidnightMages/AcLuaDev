@@ -5,7 +5,6 @@ local function printUsage()
 end
 
 if not fs.isDrive(args[1]) then
-    print("E")
     printUsage()
 elseif args[2]==nil then
     printUsage()
