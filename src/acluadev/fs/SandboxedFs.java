@@ -4,12 +4,12 @@ import java.nio.file.Path;
 import java.util.Collection;
 
 public class SandboxedFs {
-    private final DirectoryNode root = new DirectoryNode(null);
+    private final DirectoryNode root;
 //    private final HashMap<String, RandomAccessFile> files;
 //    private final HashMap<String, String[]> directories;
 
-    public SandboxedFs() {
-
+    public SandboxedFs(Path rootPath, boolean isReadOnly) {
+        root = new DirectoryNode(rootPath.toString(), null, isReadOnly);
     }
 
     public void init(Path path) {

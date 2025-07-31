@@ -7,12 +7,16 @@ import java.util.HashMap;
 import java.util.Optional;
 
 public class DirectoryNode {
-    final String name;
+    final String nameOrPath;
+    private final DirectoryNode parentFolder;
+    final boolean isPhysReadOnly;
     final HashMap<String, DirectoryNode> childDirs = new HashMap<>();
     final HashMap<String, VirtualFile> files = new HashMap<>();
 
-    public DirectoryNode(String name) {
-        this.name = name;
+    public DirectoryNode(String nameOrPath, DirectoryNode parentFolder, boolean isPhysReadOnly) {
+        this.nameOrPath = nameOrPath;
+        this.parentFolder = parentFolder;
+        this.isPhysReadOnly = isPhysReadOnly;
     }
 
     public VirtualFile getFile(String s) {
@@ -26,7 +30,8 @@ public class DirectoryNode {
                 files.get(splitted[0]) :
                 Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getOrCreateFile(splitted[1])).orElse(null);
         if (fileObject == null) {
-            fileObject = new VirtualFile("");
+            fileObject = new VirtualFile("", this, splitted[0]);
+            fileObject.writeContentsToDisk();
             this.files.put(splitted[0], fileObject);
         }
         return fileObject;
@@ -52,14 +57,14 @@ public class DirectoryNode {
         var splitted = s.split("/", 2);
         var childDir = childDirs.getOrDefault(splitted[0], null);
         if(childDir == null) {
-            childDir = new DirectoryNode(splitted[0]);
+            childDir = new DirectoryNode(splitted[0], this, isPhysReadOnly);
             childDirs.put(splitted[0], childDir);
         }
         return splitted.length == 1 ? childDir : childDir.createDirectoryAndParents(splitted[1]);
     }
 
     public DirectoryNode addChildDir(String name) {
-        var newDirNode = new DirectoryNode(name);
+        var newDirNode = new DirectoryNode(name, this, isPhysReadOnly);
         this.childDirs.put(name, newDirNode);
         return newDirNode;
     }
@@ -72,7 +77,7 @@ public class DirectoryNode {
 
                 var name = e.getFileName().toString();
                 if (Files.isRegularFile(e)) {
-                    files.put(name, VirtualFile.fromDiskFile(e));
+                    files.put(name, VirtualFile.fromDiskFile(e, this, name));
                 } else if (Files.isDirectory(e)) {
                     if (!e.endsWith("/.vscode/"))
                         addChildDir(name).init(e);
@@ -83,5 +88,16 @@ public class DirectoryNode {
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    public Path getRealDiskPath() {
+        if (parentFolder == null)
+            return Path.of(this.nameOrPath);
+
+        return parentFolder.getRealDiskPath().resolve(this.nameOrPath);
+    }
+
+    public Path getFsRootPath() {
+        return parentFolder == null ? Path.of(this.nameOrPath) : parentFolder.getFsRootPath();
     }
 }

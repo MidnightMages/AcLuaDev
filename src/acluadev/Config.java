@@ -1,3 +1,3 @@
 package acluadev;
 
-public record Config(String luaRootDirectory){};
+public record Config(String luaRootDirectory, boolean allowPhysicalFilesystemWrites){};

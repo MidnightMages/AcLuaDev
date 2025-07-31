@@ -31,6 +31,9 @@ public class Main {
     private static AcEventQueue eventQueue;
     private static Thread lvmThread;
 
+    private final static long fileWriteReloadSuppressDurationMs = 1000;
+    private static volatile long autoReloadDisabledUntil = System.currentTimeMillis();
+
     private static LuaJavaApiFunction createIterFunction(Supplier<LuaObject[][]> retsS) {
         ApiFunctionRegistry reg = null;
         return AtomicLuaFunction.forManyResults(reg, $ -> {
@@ -85,7 +88,7 @@ public class Main {
         return rv;
     }
 
-    private static LuaVM startLuaVm(Path luaRootDir) {
+    private static LuaVM startLuaVm(Path luaRootDir, boolean fsIsReadWrite) {
         String bootFile; // read bios file
         try {
             bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("bios.lua")));
@@ -111,8 +114,8 @@ public class Main {
         lfs.registerFuncs(fsReg);
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
-            var fs = new SandboxedFs();
             var dp = luaRootDir.resolve("disk" + i);
+            var fs = new SandboxedFs(dp, !fsIsReadWrite);
             try {
                 if (!Files.isDirectory(dp))
                     Files.createDirectory(dp);
@@ -228,7 +231,10 @@ public class Main {
         var projDir = System.getProperty("user.dir");
         var configPath = Path.of(projDir, "config.json");
         if (!Files.exists(configPath)) {
-            Files.writeString(configPath, new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(new Config("lua/AdvancedOS")));
+            Files.writeString(configPath, new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(
+                    new Config("lua/AdvancedOS", false)
+                )
+            );
         }
         var cfg = new ObjectMapper().readValue(Files.readString(configPath), Config.class);
         var watchPath = Path.of(projDir, cfg.luaRootDirectory());
@@ -239,11 +245,14 @@ public class Main {
         }
 
         while (true) {
-            lvmThread = new Thread(() -> startLuaVm(watchPath));
+            lvmThread = new Thread(() -> startLuaVm(watchPath, cfg.allowPhysicalFilesystemWrites()));
             console.clear();
             lvmThread.start();
             try {
-                CrossPlatformWatchService.waitForChange(watchPath);
+                do {
+                    CrossPlatformWatchService.waitForChange(watchPath);
+                } while (System.currentTimeMillis() < autoReloadDisabledUntil);
+
             } catch (InterruptedException e2) {
                 println("Interrupted");
                 break;
@@ -261,5 +270,8 @@ public class Main {
         }
 
         println("done");
+    }
+    public static void SuppressAutoReload() {
+        autoReloadDisabledUntil = System.currentTimeMillis() + fileWriteReloadSuppressDurationMs;
     }
 }
