@@ -16,7 +16,8 @@ local driverArgs={ -- GET THIS
     key={},
     restrictedComponents={"bios","disk"},
     bootDrive=bootArgs.bootDrive,
-    component=component
+    component=component,
+    kernelArgs=bootArgs
 }
 local eventProc=""
 local oldSleep=sleep
