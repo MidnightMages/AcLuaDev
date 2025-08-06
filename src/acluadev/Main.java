@@ -10,6 +10,10 @@ import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.api.functions.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -73,6 +77,37 @@ public class Main {
         System.out.print(s);
     }
 
+    private static void playBeep(double frequency, double duration) {
+        final float sampleRate = 44100.0f;
+        final float volume = 0.05f;
+        try {
+            AudioFormat audioFormat = new AudioFormat(sampleRate, 8, 1, true, false);
+            SourceDataLine line = AudioSystem.getSourceDataLine(audioFormat);
+            line.open(audioFormat);
+            line.start();
+
+            int numSamples = (int) (sampleRate * duration);
+            byte[] buffer = new byte[numSamples];
+
+            for (int i = 0; i < numSamples; i++) {
+                double t = i / sampleRate;
+
+                // make a square sound
+                byte value = (byte)(volume * Byte.MAX_VALUE * (Math.sin(2 * Math.PI * frequency * t) > 0 ? 1 : 0));
+                if (i > 1) // smooth over the last few samples to make the lower frequences better to
+                    value = (byte)((value + buffer[i-1] + buffer[i-2]) / 3f);
+
+                buffer[i] = value;
+            }
+
+            line.write(buffer, 0, buffer.length);
+            line.drain();
+            line.close();
+        } catch (LineUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static LuaVM loadMeasured(ApiFunctionRegistry reg, LuaObject env, String code) {
         println("Loading");
         var n = System.nanoTime();
@@ -88,7 +123,7 @@ public class Main {
         return rv;
     }
 
-    private static LuaVM startLuaVm(Path luaRootDir, boolean fsIsReadWrite) {
+    private static LuaVM startLuaVm(Path luaRootDir, Config cfg) {
         String bootFile; // read bios file
         try {
             bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("bios.lua")));
@@ -115,7 +150,7 @@ public class Main {
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
             var dp = luaRootDir.resolve("disk" + i);
-            var fs = new SandboxedFs(dp, !fsIsReadWrite);
+            var fs = new SandboxedFs(dp, !cfg.allowPhysicalFilesystemWrites());
             try {
                 if (!Files.isDirectory(dp))
                     Files.createDirectory(dp);
@@ -155,6 +190,18 @@ public class Main {
         }));
         internetReg.addFunctionsToTable(internetComp);
         allComponents.add(new LuaComponent("internet", internetComp));
+        // Speaker
+        computerRegistry.register("beep", AtomicLuaFunction.forZeroResults(greg, (vm, frequency, duration) -> {
+            var freq = frequency.asDouble();
+            var dur = Math.min(Math.max(duration.asDouble(), 0), 5);
+            if (freq < 20 || freq > 2000) {
+                vm.error(LuaObject.of("Invalid frequency %s. Must be in range [20, 2000]".formatted(freq)));
+            }
+
+
+            if (cfg.enableComputerBeep())
+                playBeep(freq, dur);
+        }));
 
         componentRegistry.register("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
         componentRegistry.register("getFirst", AtomicLuaFunction.forOneResult(greg, (vm, type) ->
@@ -227,12 +274,11 @@ public class Main {
     @SuppressWarnings("BusyWait")
     public static void main(String[] args) throws IOException {
         console = Console.createConsole();
-        var fs = FileSystems.getDefault();
         var projDir = System.getProperty("user.dir");
         var configPath = Path.of(projDir, "config.json");
         if (!Files.exists(configPath)) {
             Files.writeString(configPath, new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(
-                    new Config("lua/AdvancedOS", false)
+                    new Config("lua/AdvancedOS", false, false)
                 )
             );
         }
@@ -245,7 +291,7 @@ public class Main {
         }
 
         while (true) {
-            lvmThread = new Thread(() -> startLuaVm(watchPath, cfg.allowPhysicalFilesystemWrites()));
+            lvmThread = new Thread(() -> startLuaVm(watchPath, cfg));
             console.clear();
             lvmThread.start();
             try {
