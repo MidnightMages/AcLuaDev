@@ -1,6 +1,7 @@
 package acluadev.fs;
 
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -70,7 +71,7 @@ public class DirectoryNode {
     }
 
     public void init(Path path) {
-        try (var stream = Files.walk(path, 1)) {
+        try (var stream = Files.walk(path, 1, FileVisitOption.FOLLOW_LINKS)) {
             stream.forEach(e -> {
                 if (e.compareTo(path) == 0)
                     return;
