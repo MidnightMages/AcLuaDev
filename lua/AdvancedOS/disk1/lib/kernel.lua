@@ -144,7 +144,8 @@ function kernel:run()
                             --print("pid 1 interrupt res", cores)
                         --end
                         if not rv[1] then
-                            print("[warn] co errored:", rv[2])
+                            print("[warn] co errored:", rv[2])							
+                            error("[warn as error] co errored: "..tostring(rv[2]))
                         end
 
                         -- remove coroutine from processes if the coroutine has entered the dead state -> the process has exited
