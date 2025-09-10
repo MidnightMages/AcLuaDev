@@ -46,6 +46,14 @@ local function os_time() -- TODO replace with computer.time() once it is impleme
     return time
 end
 
+local enableDebugLogging = false
+local function debug(...)
+    if enableDebugLogging then
+        print(...)
+    end
+end
+function kernel:debug(...) debug(...) end
+
 ---@type process?
 local currProcess = nil
 function kernel:registerEventCallback(eventName, callback) -- TODO add unregister function
@@ -58,18 +66,8 @@ function kernel:registerEventCallback(eventName, callback) -- TODO add unregiste
     table.insert(container, {func=callback, process = currProcess})
 end
 
-local function tableWithoutPos(list, pos)
-    local rv = {}
-    for i = 1, #list do
-        if i ~= pos then
-            table.insert(rv, list[i])
-        end
-    end
-    return rv
-end
-
 local kernelRootCoroutine = coroutine.running()
-print("main was: ", coroutine.running())
+debug("main was: ", coroutine.running())
 local sleepRaw = sleep
 local run_skipCurrentSleep = false
 function kernel:run()
@@ -96,8 +94,8 @@ function kernel:run()
                     eventTriggered = true
                     table.insert(eh.process.coroutines, coroutine.create(
                         function()
-                            eh.func(table.unpack(nextEvent)) end
-                    ))
+                            eh.func(table.unpack(nextEvent))
+                        end))
                     for i = 1, #eh.process.coroutines do
                         assert(coroutine.status(eh.process.coroutines[i]) ~= "dead", "a dead coroutine was added")
                     end
@@ -144,7 +142,8 @@ function kernel:run()
                             --print("pid 1 interrupt res", cores)
                         --end
                         if not rv[1] then
-                            print("[warn] co errored:", rv[2])
+                            print("[warn] co errored:", rv[2])							
+                            error("[warn as error] co errored: "..tostring(rv[2]))
                         end
 
                         -- remove coroutine from processes if the coroutine has entered the dead state -> the process has exited
@@ -171,7 +170,7 @@ function kernel:run()
                                 proc.handle.result = rv
                                 proc.handle.state = "dead"
                                 table.insert(deadProcesses, procIdx)
-                                print("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  " has exited")
+                                debug("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  " has exited")
                             end
                             -- remove the dead coroutine
                             --print("rem func", table.remove)
@@ -182,7 +181,7 @@ function kernel:run()
                     for i = #proc.coroutines,1,-1 do
                         if deadCoroutineIndices[i] then
                             --print("deleting idx", i)
-                            proc.coroutines = tableWithoutPos(proc.coroutines, i) -- TODO replace with table.remove once implemented                            
+                            table.remove(proc.coroutines, i)
                         end
                     end
 
@@ -196,8 +195,7 @@ function kernel:run()
                 end
             end
             for i = 1, #deadProcesses do
-                --print("there is a proc to delete"..tostring(deadProcesses[i]))
-                processes = tableWithoutPos(processes, deadProcesses[i])
+                table.remove(processes, deadProcesses[i])
             end
 
             for i = 1, #processes do
@@ -253,7 +251,7 @@ end
 function kernel:startProcessFromPath(luaPath, argString)
     local f = assert(loadfile(luaPath), "failed to load file")
     local psplits = string.split(luaPath,"/")
-    return kernel:startProcess({priority=0, coroutines={coroutine.create(f)}, cwd=table.concat(psplits, "/", 1, #psplits-1).."/", resumeAfter=-1, args=argString or ""})
+    return kernel:startProcess({priority=0, coroutines={coroutine.create(f)}, cwd=(currProcess and currProcess.cwd) or (table.concat(psplits, "/", 1, #psplits-1).."/"), resumeAfter=-1, args=argString or ""})
 end
 
 ---@param processHandle processHandle
@@ -270,31 +268,17 @@ function kernel:getCurrentWorkingDirectory()
     return kernel:getCurrentProcess().cwd
 end
 
-local function stringSplit(s, delim)
-    local rv = {""}
-    assert(delim ~= nil and #delim == 1, "delim must be of len 1")
-    local j = 1
-    for i = 1, #s do
-        local c = s:sub(i,i)
-        if c == delim then
-            table.insert(rv, "")
-            j = j + 1
-        else
-            --print("rv", rv[j], tostring(c))
-            rv[j] = rv[j] .. c
-        end
-    end
-    return rv
-end
-
 ---@param s string
 ---@return string
-local function normalizePath(s)
-    local splitted = stringSplit(s, "/")
+function kernel:normalizePath(s)
+    local splitted = string.split(s, "/")
     local rv = ""
     local skipCnt = 0
     for i = #splitted, 1, -1 do
         local seg = splitted[i]
+        if i > 1 and #seg == 0 then
+            goto continue
+        end
         if seg == ".." then
             skipCnt = skipCnt + 1
         elseif seg ~= "." then
@@ -309,6 +293,7 @@ local function normalizePath(s)
             end
         end
         --print("seg", seg, rv)
+        ::continue::
     end
     
     if skipCnt > 0 then
@@ -327,7 +312,7 @@ function kernel:setCurrentWorkingDirectory(newCwd)
         newCwd = newCwd .. "/"
     end
 
-    kernel:getCurrentProcess().cwd = normalizePath(newCwd)
+    kernel:getCurrentProcess().cwd = self:normalizePath(newCwd)
 end
 
 return kernel

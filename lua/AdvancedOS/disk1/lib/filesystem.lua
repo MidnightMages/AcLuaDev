@@ -66,6 +66,22 @@ function fs:fileExists(filePath)
     return drive:fileExists(drivePath)
 end
 
+function fs:directoryExists(filePath)
+    assert(string.startsWith(filePath,"/"))
+    local p = normalizePath(filePath)
+    local drive, prefix = getMountPoint(p)
+    local drivePath = "/"..string.sub(p, #prefix+1)
+    return drive:directoryExists(drivePath)
+end
+
+function fs:list(path)
+    assert(string.startsWith(path,"/"))
+    local p = normalizePath(path)
+    local drive, prefix = getMountPoint(p)
+    local drivePath = "/"..string.sub(p, #prefix+1)
+    return drive:list(drivePath)
+end
+
 function fs:init(bootDrive)
     assert(bootDrive)
     fs:addMountPoint("/", bootDrive)

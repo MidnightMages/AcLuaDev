@@ -1,13 +1,31 @@
-local args = ...
 local kernel = require("kernel")
 local fs = require("filesystem")
 
-print("starting")
-local dir = kernel:getCurrentProcess().cwd
-print("./")
-print("../")
---for _,f in ipairs(fs:listChildren(dir)) do
---    print(f)
---end
+kernel:debug("starting")
+local proc = kernel:getCurrentProcess()
+local args = proc.args
+local dir = proc.cwd
+if string.startsWith(args,"/") then
+    dir = args
+else
+    dir = dir .. args
+end
 
-return 123
+dir = kernel:normalizePath(dir .. "/")
+
+if not fs:directoryExists(dir) then
+    print("Directory '"..tostring(dir).."' does not exist")
+    return 1
+end
+print("viewing '"..tostring(dir).."'")
+if dir ~= "/" then
+    print("./")
+    print("../")
+else
+    print("/")
+end
+for _,f in ipairs(fs:list(dir)) do
+    print(f)
+end
+
+return 0

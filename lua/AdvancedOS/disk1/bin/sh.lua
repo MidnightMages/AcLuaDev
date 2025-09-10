@@ -9,23 +9,6 @@ local function printPrefix()
     printInline("root@hostname:"..tostring(path).."# ")
 end
 
-local function stringSplit(s, delim)
-    local rv = {""}
-    assert(delim ~= nil and #delim == 1, "delim must be of len 1")
-    local j = 1
-    for i = 1, #s do
-        local c = s:sub(i,i)
-        if c == delim then
-            table.insert(rv, "")
-            j = j + 1
-        else
-            --print("rv", rv[j], tostring(c))
-            rv[j] = rv[j] .. c
-        end
-    end
-    return rv
-end
-
 local captureInput = true
 local stringBuffer = ""
 local function keyTyped(key) -- return whether to exit
@@ -43,7 +26,7 @@ local function keyTyped(key) -- return whether to exit
         if stringBuffer == "exit" then
             return true
         end
-        local splitted = stringSplit(stringBuffer, " ")
+        local splitted = string.split(stringBuffer, " ")
         local executablePath = splitted[1]
         local argString = table.concat(splitted, " ", 2)
 
@@ -59,7 +42,7 @@ local function keyTyped(key) -- return whether to exit
             local proc = kernel:startProcessFromPath("/bin/"..executablePath..".lua", argString)
             local res = kernel:waitForProcessExit(proc)
             captureInput = true
-            print("result:",res[1] == true and "success" or "error" ,select(2,table.unpack(res)))
+            kernel:debug("result:",res[1] == true and "success" or "error" ,select(2,table.unpack(res)))
         end
         stringBuffer = ""
 
@@ -69,7 +52,8 @@ local function keyTyped(key) -- return whether to exit
     end
 end
 
-printInline("Advanced OS Shell\n")
+printInline("-----------\n")
+printInline("Bongo Shell\n")
 
 local stepSize = 2
 local callSkipCounter = 0
