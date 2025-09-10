@@ -1,7 +1,7 @@
 package acluadev;
 
-import dev.asdf00.jluavm.api.functions.LuaJavaApiFunction;
 import dev.asdf00.jluavm.api.functions.MixedStateFunctionRegistry;
+import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 import java.util.function.Function;

@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.api.functions.ApiFunctionRegistry;
 import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
-import dev.asdf00.jluavm.api.functions.LuaJavaApiFunction;
+import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 import javax.sound.sampled.AudioFormat;
