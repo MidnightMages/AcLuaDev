@@ -1,5 +1,6 @@
 local kernel = require("kernel")
-
+local fs = require("filesystem")
+local argString = kernel:getCurrentProcess().args
 local function printPrefix()
     local path = kernel:getCurrentWorkingDirectory()
     assert(#path>0, "cwd was empty?")
@@ -8,6 +9,41 @@ local function printPrefix()
     end
     printInline("root@hostname:"..tostring(path).."# ")
 end
+
+kernel:debug("Shell with PID", kernel:getCurrentProcess().pid, "was started")
+
+local function executeStatement(statement)
+    if statement == "exit" then return true end
+
+    local splitted = string.split(statement, " ")
+    local executablePath = splitted[1]
+    local argString = table.concat(splitted, " ", 2)
+
+    if executablePath == "cd" then
+        local firstChar = argString:sub(1,1)
+        local path = argString
+        if firstChar ~= "~" and firstChar ~= "/" then -- if relative
+            path = kernel:getCurrentWorkingDirectory()..path
+        end
+        kernel:setCurrentWorkingDirectory(path)
+    else
+        local proc = kernel:startProcessFromPath("/bin/"..executablePath..".lua", argString)
+        local res = kernel:waitForProcessExit(proc)
+        kernel:debug("result:", res[1] == true and "success" or "error", select(2, table.unpack(res)))
+    end
+end
+
+if argString ~= "" then
+    executeStatement(argString)
+    return 0
+end
+
+local rcFile = "/root/.bongorc"
+if fs:fileExists(rcFile) then
+    local rcFileContents = fs:readAllText(rcFile)
+    executeStatement(rcFileContents)
+end
+
 
 local captureInput = true
 local stringBuffer = ""
@@ -23,29 +59,12 @@ local function keyTyped(key) -- return whether to exit
     end
 
     if key == "\n" then
-        if stringBuffer == "exit" then
-            return true
-        end
-        local splitted = string.split(stringBuffer, " ")
-        local executablePath = splitted[1]
-        local argString = table.concat(splitted, " ", 2)
-
-        if executablePath == "cd" then
-            local firstChar = argString:sub(1,1)
-            if firstChar == "~" or firstChar == "/" then -- if absolute   
-                kernel:setCurrentWorkingDirectory(argString)
-            else
-                kernel:setCurrentWorkingDirectory(kernel:getCurrentWorkingDirectory()..argString)
-            end
-        else
-            captureInput = false
-            local proc = kernel:startProcessFromPath("/bin/"..executablePath..".lua", argString)
-            local res = kernel:waitForProcessExit(proc)
-            captureInput = true
-            kernel:debug("result:",res[1] == true and "success" or "error" ,select(2,table.unpack(res)))
-        end
+        local statement = stringBuffer
         stringBuffer = ""
-
+        captureInput = false
+        local res = executeStatement(statement)
+        captureInput = true
+        if res == true then return true end
         printPrefix()
     elseif key ~= "\b" then
         stringBuffer = stringBuffer .. key
@@ -69,7 +88,8 @@ local function printLineSparse(s)
     end
     printInline(printStr.."\n")
 end
--- src: https://emojicombos.com/bongo-cat-ascii-art
+-- src: https://emojicombos.com/bongo-cat-ascii-art 
+--[[
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣿⡷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⡿⠋⠈⠻⣮⣳⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣾⡿⠋⠀⠀⠀⠀⠙⣿⣿⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
@@ -89,9 +109,42 @@ printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠛⠿⠿⣿⣷⣶⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⣿⣹")
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⠀⠀⠀⠀⠀⠀⢸⣧")
 printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣿⣆⠀⠀⠀⠀⠀⠀⢀⣀⣠⣤⣶⣾⣿⣿⣿⣿⣤⣄⣀⡀⠀⠀⠀⣿")
-printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⢿⣻⣷⣶⣾⣿⣿⡿⢯⣛⣛⡋⠁⠀⠀⠉⠙⠛⠛⠿⣿⣿⡷⣶⣿")
+printLineSparse("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⢿⣻⣷⣶⣾⣿⣿⡿⢯⣛⣛⡋⠁⠀⠀⠉⠙⠛⠛⠿⣿⣿⡷⣶⣿")]]
+
+-- src: https://en.wikipedia.org/wiki/Bongo_Cat; edited via https://emojicombos.com/dot-art-editor
+--[[
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⠗⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⣀⡤⠖⠛⠁⠀⠈⠳⠦⢤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⣠⣴⢦⣄⡴⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠓⢦⣄⡀⣠⣴⣦⠀⠀⠀⠀⠀")
+print("⠀⢸⡇⣴⡓⠀⠀⠀⠀⢠⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠉⠀⣸⠀⠀⠀⠀⠀")
+print("⠀⠈⣧⣄⠀⠀⠀⠀⠀⠈⠉⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡏⠀⠀⠀⠀⠀")
+print("⠛⠛⠛⠛⠶⠦⣤⣀⡀⠀⠀⠙⠾⠷⠞⠀⠀⠸⠟⠀⠀⠀⠀⠀⠀⠸⣆⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠙⠛⠿⠶⣶⣤⣤⣀⠀⠀⠀⠀⠀⠀⠀⠘⣆⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡏⠀⠀⢀⣴⠓⠦⢤⣄⣹⡀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠷⠤⠞⠋⠀⠀⠀⠀⠀⠈⠉⠙⠀⠀")
+]]
+
+--[[
+-- src: https://emojicombos.com/bongo-cat-ascii-art; bongos removed
+--print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⡾⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣤⡾⠛⠀⠈⢻⣦⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⡾⠛⠉⠁⠀⠀⠀⠀⠀⠉⠉⠛⠛⠳⢶⣤⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⣠⣾⡾⣷⣦⣠⡾⣟⠑⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠻⢶⣤⡀⠀⢀⣠⣼⡄⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⢰⣿⠉⢗⢦⠈⣿⡶⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢻⠿⠋⠉⢸⣷⠀⠀⠀⠀⠀")
+print("⢀⠀⠀⠀⢼⣿⡉⠻⠇⠀⠀⠀⠀⠀⠀⣾⣷⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠇⡀⠀⠀⠀⠀")
+print("⠺⠷⠦⢤⣼⣿⣆⡀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠀⠘⠛⢿⡶⠆⠀⠀⠀⢀⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡟⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠈⠉⠛⠛⠲⠶⣤⣤⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢺⣿⠘⠀⠀⠀⠀⠀⠀⠀⠀⠺⣧⠀⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠛⠳⠶⠦⣤⣄⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⣧⠀⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠓⠀⠀⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀ ⣿⡆⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⠻⢦⣄⣠⣤⡤⠴⣾⡋⠙⠛⠲⠦⠤⣤⣀⣸⣇⠀⠀⠀⠀")
+print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠚⠁⣴⠃⢹⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠛⠲⠆⠀")
+--print("⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠘⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀")
+]]
+
 
 printPrefix()
+
 local keepRunning = true
 kernel:registerEventCallback("keyTyped", function(...)
     if keyTyped(select(2,...)) then keepRunning = false end

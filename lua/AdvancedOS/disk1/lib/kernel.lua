@@ -46,7 +46,7 @@ local function os_time() -- TODO replace with computer.time() once it is impleme
     return time
 end
 
-local enableDebugLogging = false
+local enableDebugLogging = true
 local function debug(...)
     if enableDebugLogging then
         print(...)
@@ -196,13 +196,14 @@ function kernel:run()
             end
             for i = 1, #deadProcesses do
                 table.remove(processes, deadProcesses[i])
+                earliestResume = nil -- if a process died, force instant resume as some might have become unblocked
             end
 
             for i = 1, #processes do
                 assert(processes[i].handle.state ~= "dead", "found a dead process"..tostring(i))
             end
 
-            processIdleTimeLeft = math.min(1, earliestResume and (earliestResume-os_time()) or 0) -- pause process queue execution at most for one second
+            processIdleTimeLeft = math.min(0.1, earliestResume and (earliestResume-os_time()) or 0) -- pause process queue execution at most for one second
             if run_skipCurrentSleep then processIdleTimeLeft = 0 end
         end
         
@@ -258,7 +259,7 @@ end
 function kernel:waitForProcessExit(processHandle)
     while processHandle.state ~= "dead" do
         --print("sleep begun")
-        sleep(5)
+        sleep(0.1)
     end
     return processHandle.result
 end
