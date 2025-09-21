@@ -1,7 +1,7 @@
 --local a = {}
 --setmetatable(a,a)
 --a[1] = 1
-local function pp(tbl)
+function _G.pp(tbl)
     for k,v in pairs(tbl) do
         print(k, ":", v)
     end
