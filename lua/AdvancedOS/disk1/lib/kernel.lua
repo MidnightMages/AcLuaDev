@@ -47,12 +47,12 @@ local function os_time() -- TODO replace with computer.time() once it is impleme
 end
 
 local enableDebugLogging = true
-local function debug(...)
+local function debugf(...)
     if enableDebugLogging then
         print(...)
     end
 end
-function kernel:debug(...) debug(...) end
+function kernel:debug(...) debugf(...) end
 
 ---@type process?
 local currProcess = nil
@@ -67,7 +67,7 @@ function kernel:registerEventCallback(eventName, callback) -- TODO add unregiste
 end
 
 local kernelRootCoroutine = coroutine.running()
-debug("main was: ", coroutine.running())
+debugf("main was: ", coroutine.running())
 local sleepRaw = sleep
 local run_skipCurrentSleep = false
 function kernel:run()
@@ -142,8 +142,8 @@ function kernel:run()
                             --print("pid 1 interrupt res", cores)
                         --end
                         if not rv[1] then
-                            print("[warn] co errored:", rv[2])							
-                            error("[warn as error] co errored: "..tostring(rv[2]))
+                            --print("[warn] co errored:", rv[2])							
+                            error("[warn as error] co errored: \n"..tostring(rv[2]))
                         end
 
                         -- remove coroutine from processes if the coroutine has entered the dead state -> the process has exited
@@ -170,7 +170,7 @@ function kernel:run()
                                 proc.handle.result = rv
                                 proc.handle.state = "dead"
                                 table.insert(deadProcesses, procIdx)
-                                debug("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  " has exited")
+                                debugf("process with pid "..tostring(proc.pid).." and idx "..tostring(procIdx)..  " has exited")
                             end
                             -- remove the dead coroutine
                             --print("rem func", table.remove)
