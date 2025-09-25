@@ -27,9 +27,14 @@ local function executeStatement(statement)
         end
         kernel:setCurrentWorkingDirectory(path)
     else
-        local proc = kernel:startProcessFromPath("/bin/"..executablePath..".lua", argString)
-        local res = kernel:waitForProcessExit(proc)
-        kernel:debug("result:", res[1] == true and "success" or "error", select(2, table.unpack(res)))
+        local dstPath = "/bin/"..executablePath..".lua"
+        if fs:fileExists(dstPath) then           
+            local proc = kernel:startProcessFromPath(dstPath, argString)
+            local res = kernel:waitForProcessExit(proc)
+            kernel:debug("result:", res[1] == true and "success" or "error", select(2, table.unpack(res))) 
+        else
+            print("ERROR: file '"..tostring(dstPath).."' does not exist")
+        end
     end
 end
 

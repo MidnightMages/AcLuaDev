@@ -66,12 +66,25 @@ function kernel:registerEventCallback(eventName, callback) -- TODO add unregiste
     table.insert(container, {func=callback, process = currProcess})
 end
 
+local function coroutineXPCreate(f)
+    return coroutine.create(function()
+        local res = table.pack(xpcall(f, debug.traceback))
+        --print("call done")
+        if not res[1] then
+            print("erroring")
+            error(res[2])
+        end
+        --print("all good")
+        return table.unpack(select(1,res))
+    end)
+end
+
 local kernelRootCoroutine = coroutine.running()
 debugf("main was: ", coroutine.running())
 local sleepRaw = sleep
 local run_skipCurrentSleep = false
 function kernel:run()
-    --kernel:startProcess({priority=0, coroutine=coroutine.create(eventPump), cwd="/"})
+    --kernel:startProcess({priority=0, coroutine=coroutineXPCreate(eventPump), cwd="/"})
     
     local processIdleTimeLeft = 0
     while not shutdownRequested do
@@ -92,7 +105,7 @@ function kernel:run()
                     end
                     --print("interrupt set up for proc id", eh.process.pid)
                     eventTriggered = true
-                    table.insert(eh.process.coroutines, coroutine.create(
+                    table.insert(eh.process.coroutines, coroutineXPCreate(
                         function()
                             eh.func(table.unpack(nextEvent))
                         end))
@@ -250,9 +263,10 @@ end
 ---@param luaPath string
 ---@param argString string?
 function kernel:startProcessFromPath(luaPath, argString)
+    debugf("starting", luaPath)
     local f = assert(loadfile(luaPath), "failed to load file")
     local psplits = string.split(luaPath,"/")
-    return kernel:startProcess({priority=0, coroutines={coroutine.create(f)}, cwd=(currProcess and currProcess.cwd) or (table.concat(psplits, "/", 1, #psplits-1).."/"), resumeAfter=-1, args=argString or ""})
+    return kernel:startProcess({priority=0, coroutines={coroutineXPCreate(f)}, cwd=(currProcess and currProcess.cwd) or (table.concat(psplits, "/", 1, #psplits-1).."/"), resumeAfter=-1, args=argString or ""})
 end
 
 ---@param processHandle processHandle
