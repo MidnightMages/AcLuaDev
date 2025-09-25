@@ -50,35 +50,41 @@ local function getMountPoint(path)
     return currDrive, currPrefix
 end
 
-function fs:readAllText(filePath)
+local function findDriveAndDrivePath(filePath)
     assert(string.startsWith(filePath,"/"))
     local p = normalizePath(filePath)
     local drive, prefix = getMountPoint(p)
     local drivePath = "/"..string.sub(p, #prefix+1)
+    return drive, drivePath
+end
+
+function fs:readAllText(filePath)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
     return drive:open(drivePath).read()
 end
 
+function fs:writeAllText(filePath, content)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
+    return drive:open(drivePath).write(content)
+end
+
+function fs:appendAllText(filePath, content)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
+    return drive:open(drivePath).append(content)
+end
+
 function fs:fileExists(filePath)
-    assert(string.startsWith(filePath,"/"))
-    local p = normalizePath(filePath)
-    local drive, prefix = getMountPoint(p)
-    local drivePath = "/"..string.sub(p, #prefix+1)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
     return drive:fileExists(drivePath)
 end
 
 function fs:directoryExists(filePath)
-    assert(string.startsWith(filePath,"/"))
-    local p = normalizePath(filePath)
-    local drive, prefix = getMountPoint(p)
-    local drivePath = "/"..string.sub(p, #prefix+1)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
     return drive:directoryExists(drivePath)
 end
 
-function fs:list(path)
-    assert(string.startsWith(path,"/"))
-    local p = normalizePath(path)
-    local drive, prefix = getMountPoint(p)
-    local drivePath = "/"..string.sub(p, #prefix+1)
+function fs:list(filePath)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
     return drive:list(drivePath)
 end
 
