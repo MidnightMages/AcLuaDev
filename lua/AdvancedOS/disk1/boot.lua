@@ -9,6 +9,19 @@ end
 
 
 function string.endsWith(str, suffix) return string.sub(str, #str-#suffix+1) == suffix end
+function string.trimRight(str, toTrim)
+    assert(#toTrim == 1, "toTrim must be exactly of length 1")
+    local lastLetterToTrim = #str
+    while lastLetterToTrim >= 1 do
+        if str:sub(lastLetterToTrim,lastLetterToTrim) ~= toTrim then
+            break
+        else
+            lastLetterToTrim = lastLetterToTrim - 1
+        end
+    end
+    return str:sub(1,lastLetterToTrim)
+end
+
 function string.startsWith(str, prefix) return string.sub(str, 1, #prefix) == prefix end
 ---@param delim string
 ---@param ... string
@@ -43,6 +56,16 @@ function string.replace(str, search, replacement)
         i=i+1
     end
     return rv .. string.sub(str, consumedLen)
+end
+function string.charCount(str, charToCount)
+    local rv = 0
+    assert(#charToCount == 1, "charToCount must be exactly of length 1")
+    for i = 1, #str do
+        if str:sub(i,i) == "charToCount" then
+            rv = rv + 1
+        end
+    end
+    return rv
 end
 
 --print("this is some text")
