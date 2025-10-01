@@ -28,7 +28,7 @@ public class ComponentRegistryUD implements LuaUserData {
     @LuaExposed(LuaExposed.Policy.READ)
     public LuaObject list = LuaObject.of(createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
 
-    @LuaCallable()
+    @LuaCallable
     public LuaObject getFirst(String componentType) {
         return allComponents.stream().filter(x -> x.type().equals(componentType)).map(LuaComponent::comp).findFirst().orElse(LuaObject.NIL);
     }
