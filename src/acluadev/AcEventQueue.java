@@ -2,6 +2,7 @@ package acluadev;
 
 import acluadev.misc.BaseUDComponent;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
+import dev.asdf00.jluavm.runtime.utils.UDTranslators;
 
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
@@ -36,7 +37,9 @@ public class AcEventQueue {
     }
 
     public void addComponentAdded(LuaObject comp) {
-        var ud = (BaseUDComponent)comp.refVal;
-        addRaw("componentAdded", new LuaObject[]{ud.type.get(), comp});
+        assert !comp.isNil();
+        var ud = UDTranslators.lo2ud(BaseUDComponent.class, comp);
+        assert ud != null;
+        addRaw("componentAdded", ud.type.get(), comp);
     }
 }
