@@ -1,5 +1,6 @@
 package acluadev;
 
+import acluadev.misc.BaseUDComponent;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 import java.awt.event.KeyEvent;
@@ -34,7 +35,8 @@ public class AcEventQueue {
         addRaw("shutdown");
     }
 
-    public void addComponentAdded(LuaComponent comp) {
-        addRaw("componentAdded", comp.asLuaObj());
+    public void addComponentAdded(LuaObject comp) {
+        var ud = (BaseUDComponent)comp.refVal;
+        addRaw("componentAdded", new LuaObject[]{ud.type.get(), comp});
     }
 }

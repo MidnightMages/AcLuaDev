@@ -1,34 +1,12 @@
 package acluadev;
 
 import dev.asdf00.jluavm.api.functions.MixedStateFunctionRegistry;
-import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
-import java.util.function.Function;
 
 public class ScopedMixedStateFunctionRegistry extends MixedStateFunctionRegistry {
     public ScopedMixedStateFunctionRegistry(String id) {
         super(id);
-    }
-
-    public SubRegistry forTable(String tableName) {
-        return new SubRegistry(tableName);
-    }
-
-    public class SubRegistry {
-        private final String prefix;
-
-        private SubRegistry(String tableName) {
-            this.prefix = (tableName == null || tableName.isBlank()) ? "" : tableName + ".";
-        }
-
-        public void register(String name, LuaJavaApiFunction apiFunction) {
-            ScopedMixedStateFunctionRegistry.this.register(prefix + name, apiFunction);
-        }
-
-        public void register(String name, Class<? extends LuaJavaApiFunction> clazz, Function<LuaObject, LuaJavaApiFunction> instantiator) {
-            ScopedMixedStateFunctionRegistry.this.register(prefix + name, clazz, instantiator);
-        }
     }
 
     public void addFunctionsToTable(LuaObject env) {

@@ -1,13 +1,13 @@
 local ok, rv = xpcall(function()
 	_G.components = {}
 	local idx = 1
-	for t, a in component.list() do
+	for t, a in component:list() do
 	   print(t, a.id)
 	   computer.nvram.test = 123
 	   print(computer.nvram.test)
 	   computer.nvram.test = "bla"
-	   component.getFirst("bios"):setData("testbiosdata")
-	   print("bios data:",component.getFirst("bios"):getData())
+	   component:getFirst("bios"):setData("testbiosdata")
+	   print("bios data:",component:getFirst("bios"):getData())
 	   print(computer.nvram.test)
 	   if t == "disk" then
 		  --print("has boot file? ", a.fileExists("boot.lua"))

@@ -1,14 +1,13 @@
 package acluadev;
 
 import acluadev.fs.SandboxedFs;
-import acluadev.misc.BiosUD;
-import acluadev.misc.ComputerUD;
-import acluadev.misc.DiskUD;
+import acluadev.misc.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.api.functions.ApiFunctionRegistry;
 import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
+import dev.asdf00.jluavm.api.userdata.LuaUserData;
 import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
@@ -35,7 +34,7 @@ public class Main {
     private final static long fileWriteReloadSuppressDurationMs = 1000;
     private static volatile long autoReloadDisabledUntil = System.currentTimeMillis();
 
-    private static LuaJavaApiFunction createIterFunction(Supplier<LuaObject[][]> retsS) {
+    public static LuaJavaApiFunction createIterFunction(Supplier<LuaObject[][]> retsS) {
         ApiFunctionRegistry reg = null;
         return AtomicLuaFunction.forManyResults(reg, $ -> {
             var rets = retsS.get();
@@ -104,9 +103,8 @@ public class Main {
         console.onKeyTyped = eventQueue::addKeyTyped;
 
         var greg = new ScopedMixedStateFunctionRegistry("testHarness");
-        var componentRegistry = greg.forTable("component");
 
-        var allComponents = new ArrayList<LuaComponent>();
+        var componentReg = new ComponentRegistryUD();
         var _G = LuaObject.table();
 
         // set up disk filesystems
@@ -123,36 +121,10 @@ public class Main {
 
             var ud = new DiskUD(i);
             ud.init(fs);
-            allComponents.add(new LuaComponent("disk", LuaObject.of(ud)));
+            componentReg.registerComponent(ud);
         }
-        // internet functionality
-        var internetReg = new ScopedMixedStateFunctionRegistry("testharness_internal_internet");
-        var internetComp = LuaObject.table();
-        internetReg.register("get", AtomicLuaFunction.forOneResult(internetReg, (vm, self, luaUrl) -> {
-            var url = URI.create(luaUrl.asString());
-            var req = HttpRequest.newBuilder(url).GET().build();
-            //noinspection resource
-            var client = HttpClient.newHttpClient();
-
-            try {
-                var resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-                var rv = LuaObject.table();
-                rv.set("status", LuaObject.of(resp.statusCode()));
-                rv.set("body", LuaObject.of(resp.body()));
-                return rv;
-            } catch (IOException | InterruptedException e) {
-                System.out.printf("Exception during http request to %s: %s%n", url, e);
-                vm.error(LuaObject.of("An error has occurred, check the log for more information"));
-                return null;
-            }
-        }));
-        internetReg.addFunctionsToTable(internetComp);
-        allComponents.add(new LuaComponent("internet", internetComp));
-
-        componentRegistry.register("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
-        componentRegistry.register("getFirst", AtomicLuaFunction.forOneResult(greg, (vm, type) ->
-                allComponents.stream().filter(x -> x.type().equals(type.asString())).map(LuaComponent::comp).findFirst().orElse(LuaObject.NIL))
-        );
+        componentReg.registerComponent(new InternetUD());
+        componentReg.registerComponent(new BiosUD());
 
         greg.register("sleep", AtomicLuaFunction.forZeroResults(greg, (vm, time) -> {
             try {
@@ -179,15 +151,13 @@ public class Main {
             }
         }));
 
-        allComponents.add(new LuaComponent("bios", LuaObject.of(new BiosUD())));
-
         greg.addFunctionsToTable(_G);
 
         _G.set("computer", LuaObject.of(new ComputerUD(cfg.enableComputerBeep())));
-        var vm = loadMeasured(greg, _G, bootFile);
+        _G.set("component", LuaObject.of(componentReg));
 
-        for (var comp : allComponents)
-            eventQueue.addComponentAdded(comp);
+        var vm = loadMeasured(greg, _G, bootFile);
+        componentReg.addAllComponentsToEventQueue(eventQueue);
         println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C
         println("============ EXECUTING ============");
         var res = vm.run();
