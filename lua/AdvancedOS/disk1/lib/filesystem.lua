@@ -42,7 +42,10 @@ local function getMountPoint(path)
     local currPrefix = "/"
     local currDrive = mounts[currPrefix]
     local currLen = #currPrefix
+    if not string.endsWith(path,"/") then path = path .. "/" end
+    --print("looking for mountpoint of", path)
     for prefix, drive in pairs(mounts) do
+        --print("checking", prefix, drive)
         if #prefix > currLen and string.startsWith(path, prefix) then
             currDrive, currPrefix = drive, prefix
         end
@@ -85,7 +88,20 @@ end
 
 function fs:list(filePath)
     local drive, drivePath = findDriveAndDrivePath(filePath)
-    return drive:list(drivePath)
+    local res = drive:list(drivePath)
+    if not string.endsWith(filePath, "/") then filePath = filePath + "/" end
+    for prefix, _ in pairs(mounts) do
+        --print("checking", prefix, filePath, #string.split(prefix:sub(#filePath+1),"/"), prefix:sub(#filePath+1), string.charCount(prefix:sub(#filePath+1), "/"))
+        if string.startsWith(prefix, filePath) then -- and #string.split(prefix:sub(#filePath+1),"/") == 1
+            local innerFolder = string.trimRight(prefix:sub(#filePath+1),"/")
+            --print("inner folder:",innerFolder)
+            if #innerFolder > 0 then
+                table.insert(res, innerFolder .. "/")
+            end
+        end
+    end
+    --print(res)
+    return res
 end
 
 function fs:init(bootDrive)
@@ -105,13 +121,17 @@ function fs:init(bootDrive)
                 local validDiskIds = ""
                 local found = false
                 for t2, a in pairs(components) do
-                    if t2 == "disk" and a.id == diskId then
+                    if t2 ~= "disk"  then goto continue end
+                    local componentDiskId = "disk_"..a.diskSlot
+                    print(t2, componentDiskId, diskId)
+                    if componentDiskId == diskId then
                         fs:addMountPoint(path, a)
                         found = true
                         break
                     else
-                        validDiskIds = validDiskIds .. a.id .. ";"
+                        validDiskIds = validDiskIds .. componentDiskId .. ";"
                     end
+                    ::continue::
                 end
                 if not found then
                     error("Unable to find drive '"..tostring(diskId).."' for mountpoint '"..tostring(path).."'! Valid drives found: "..validDiskIds)

@@ -46,7 +46,7 @@ local function os_time() -- TODO replace with computer.time() once it is impleme
     return time
 end
 
-local enableDebugLogging = true
+local enableDebugLogging = false
 local function debugf(...)
     if enableDebugLogging then
         print(...)
