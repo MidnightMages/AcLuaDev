@@ -11,13 +11,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-public class DiskUD implements LuaUserData {
+public class DiskUD extends BaseUDComponent {
+    @Override
+    protected String getComponentType() {
+        return "disk";
+    }
+
     private SandboxedFs fs;
 
     private int diskId = -1;
     @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty id = LuaProperty.ofString(
-            () -> "disk_" + diskId,
+    public final LuaProperty diskSlot = LuaProperty.ofInt(
+            () -> diskId,
             null
     );
 

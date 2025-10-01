@@ -7,15 +7,13 @@ import dev.asdf00.jluavm.utils.ByteArrayReader;
 import java.util.List;
 import java.util.Map;
 
-public class BiosUD implements LuaUserData {
+public class BiosUD extends BaseUDComponent {
+    @Override
+    protected String getComponentType() {
+        return "bios";
+    }
 
     private String biosFile = "";
-
-    @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty id = LuaProperty.ofString(
-            () -> "bios",
-            null
-    );
 
     @LuaCallable
     public String getData() {
