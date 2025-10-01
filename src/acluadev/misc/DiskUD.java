@@ -2,7 +2,10 @@ package acluadev.misc;
 
 import acluadev.fs.LuaFsFileUD;
 import acluadev.fs.SandboxedFs;
-import dev.asdf00.jluavm.api.userdata.*;
+import dev.asdf00.jluavm.api.userdata.LuaCallable;
+import dev.asdf00.jluavm.api.userdata.LuaDeserializer;
+import dev.asdf00.jluavm.api.userdata.LuaExposed;
+import dev.asdf00.jluavm.api.userdata.LuaProperty;
 import dev.asdf00.jluavm.exceptions.LuaJavaError;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 import dev.asdf00.jluavm.utils.ByteArrayReader;
@@ -37,9 +40,29 @@ public class DiskUD extends BaseUDComponent {
         fs = fileSystem;
     }
 
+//    @LuaCallable
+//    public LuaObject open(String fileNameL) {
+//        return open(fileNameL, false);
+//    }
+
     @LuaCallable
-    public LuaObject open(String fileNameL) {
-        return open(fileNameL, false);
+    public LuaObject open(LuaObject[] args) {
+        if (args.length >= 1) {
+            var fileName = args[0];
+            if (!fileName.isString()) {
+                throw new LuaJavaError("Second argument must be string but was %s".formatted(fileName.getTypeAsString()));
+            }
+            if (args.length == 1) {
+                return open(fileName.asString(), false);
+            } else if (args.length == 2) {
+                var autoCreate = args[1];
+                if (!autoCreate.isBoolean()) {
+                    throw new LuaJavaError("Third argument must be boolean but was %s".formatted(autoCreate.getTypeAsString()));
+                }
+                return open(fileName.asString(), autoCreate.getBool());
+            }
+        }
+        throw new LuaJavaError("Expected 3 arguments but got %s".formatted(args.length + 1));
     }
 
     //@LuaCallable
