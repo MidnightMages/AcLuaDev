@@ -7,7 +7,7 @@ function _G.pp(tbl)
     end
 end
 
-
+_ENV._EXT.string = _ENV.string
 function string.endsWith(str, suffix) return string.sub(str, #str-#suffix+1) == suffix end
 function string.trimRight(str, toTrim)
     assert(#toTrim == 1, "toTrim must be exactly of length 1")
