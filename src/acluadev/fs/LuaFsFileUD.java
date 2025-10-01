@@ -9,10 +9,10 @@ import dev.asdf00.jluavm.utils.ByteArrayReader;
 import java.util.List;
 import java.util.Map;
 
-public class LuaFsFile implements LuaUserData {
+public class LuaFsFileUD implements LuaUserData {
     final VirtualFile f;
 
-    public LuaFsFile(VirtualFile f) {
+    public LuaFsFileUD(VirtualFile f) {
         this.f = f;
     }
 
@@ -38,7 +38,7 @@ public class LuaFsFile implements LuaUserData {
     }
 
     @LuaDeserializer
-    public static LuaFsFile todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
+    public static LuaFsFileUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
         // TODO actually provide serializaion
         return null;
     }
