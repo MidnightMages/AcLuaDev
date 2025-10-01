@@ -1,7 +1,6 @@
 package acluadev.misc;
 
 import dev.asdf00.jluavm.api.userdata.LuaDeserializer;
-import dev.asdf00.jluavm.api.userdata.LuaUserData;
 import dev.asdf00.jluavm.exceptions.LuaJavaError;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 import dev.asdf00.jluavm.utils.ByteArrayReader;
@@ -10,7 +9,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class NvramUD implements LuaUserData {
+public class NvramUD extends BaseUDComponent {
+    @Override
+    protected String getComponentType() {
+        return "nvram";
+    }
 
     private final HashMap<String, LuaObject> backing = new HashMap<>();
 
