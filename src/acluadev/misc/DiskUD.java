@@ -38,7 +38,7 @@ public class DiskUD implements LuaUserData {
     }
 
     //@LuaCallable
-    public LuaObject open(String fileNameL, Boolean autoCreate) {
+    public LuaObject open(String fileNameL, boolean autoCreate) {
         var fileName = fileNameL;
         if (fileName.startsWith("/"))
             fileName = fileName.substring(1);
@@ -72,12 +72,12 @@ public class DiskUD implements LuaUserData {
     }
 
     @LuaCallable
-    public Boolean fileExists(String path) {
+    public boolean fileExists(String path) {
         return fs.getFile(path) != null;
     }
 
     @LuaCallable
-    public Boolean directoryExists(String path) {
+    public boolean directoryExists(String path) {
         return fs.getDirectory(path) != null;
     }
 
@@ -87,7 +87,7 @@ public class DiskUD implements LuaUserData {
     }
 
     @LuaCallable
-    public Boolean delete(String path) {
+    public boolean delete(String path) {
         if (!fs.fileExists(path)) {
             throw new LuaJavaError("File '%s' does not exist".formatted(path));
         }
@@ -111,7 +111,7 @@ public class DiskUD implements LuaUserData {
     }
 
     @LuaCallable
-    public Integer getSize(String path) {
+    public int getSize(String path) {
         if (!fs.fileExists(path)) {
             throw new LuaJavaError("File '%s' does not exist".formatted(path));
         }

@@ -32,7 +32,7 @@ public class ComputerUD implements LuaUserData {
     public LuaObject nvram = LuaObject.of(new NvramUD());
 
     @LuaCallable
-    public void beep(Double freq, Double duration) {
+    public void beep(double freq, double duration) {
         var dur = Math.min(Math.max(duration, 0), 5);
         if (freq < 20 || freq > 2000) {
             throw new LuaJavaError("Invalid frequency %s. Must be in range [20, 2000]".formatted(freq));

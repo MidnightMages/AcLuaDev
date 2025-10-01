@@ -91,7 +91,7 @@ function kernel:run()
 
         local eventTriggered = false
         while true do -- process event queue always
-            local nextEvent = table.pack(computer.getMachineEvent())
+            local nextEvent = table.pack(computer:getMachineEvent())
             if nextEvent[1] == nil then break end
             if nextEvent[1] == "shutdown" then
                 shutdownRequested = true
