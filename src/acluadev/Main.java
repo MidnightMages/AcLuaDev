@@ -1,7 +1,8 @@
 package acluadev;
 
-import acluadev.fs.LuaFilesystem;
 import acluadev.fs.SandboxedFs;
+import acluadev.misc.BiosUD;
+import acluadev.misc.DiskUD;
 import acluadev.misc.NvramUD;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -22,7 +23,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -94,9 +94,9 @@ public class Main {
                 double t = i / sampleRate;
 
                 // make a square sound
-                byte value = (byte)(volume * Byte.MAX_VALUE * (Math.sin(2 * Math.PI * frequency * t) > 0 ? 1 : 0));
+                byte value = (byte) (volume * Byte.MAX_VALUE * (Math.sin(2 * Math.PI * frequency * t) > 0 ? 1 : 0));
                 if (i > 1) // smooth over the last few samples to make the lower frequences better to
-                    value = (byte)((value + buffer[i-1] + buffer[i-2]) / 3f);
+                    value = (byte) ((value + buffer[i - 1] + buffer[i - 2]) / 3f);
 
                 buffer[i] = value;
             }
@@ -144,10 +144,6 @@ public class Main {
         var allComponents = new ArrayList<LuaComponent>();
         var _G = LuaObject.table();
 
-        var fss = new ArrayList<SandboxedFs>();
-        var lfs = new LuaFilesystem();
-        var fsReg = new ScopedMixedStateFunctionRegistry("testHarness_internal_fs");
-        lfs.registerFuncs(fsReg);
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
             var dp = luaRootDir.resolve("disk" + i);
@@ -159,15 +155,11 @@ public class Main {
                 throw new RuntimeException(e);
             }
             fs.init(dp);
-            fss.add(fs);
 
-            var t = LuaObject.table();
-            t.set("id", LuaObject.of("disk_" + i));
-            t.set("__UDATA_id", LuaObject.of(i));
-            fsReg.addFunctionsToTable(t);
-            allComponents.add(new LuaComponent("disk", t));
+            var ud = new DiskUD(i);
+            ud.init(fs);
+            allComponents.add(new LuaComponent("disk", LuaObject.of(ud)));
         }
-        lfs.init(fss.toArray(SandboxedFs[]::new));
         // internet functionality
         var internetReg = new ScopedMixedStateFunctionRegistry("testharness_internal_internet");
         var internetComp = LuaObject.table();
@@ -238,17 +230,8 @@ public class Main {
             }
         }));
 
-        var virtualBootFile = new String[1];
-        virtualBootFile[0] = bootFile;
-        var biosReg = new ScopedMixedStateFunctionRegistry("testHarness_internal_bios");
-        biosReg.register("getData", AtomicLuaFunction.forOneResult(greg, (vm, device) -> LuaObject.of(virtualBootFile[0])));
-        biosReg.register("setData", AtomicLuaFunction.forZeroResults(greg, (vm, device, x) -> virtualBootFile[0] = x.getString()));
-        var bTable = LuaObject.table();
-        biosReg.addFunctionsToTable(bTable);
-        bTable.set("id", LuaObject.of("bios"));
-        allComponents.add(new LuaComponent("bios", bTable));
+        allComponents.add(new LuaComponent("bios", LuaObject.of(new BiosUD())));
 
-        // todo inject globals, load main file, initialize readonly filesystem, run on new thread
         greg.addFunctionsToTable(_G);
         _G.get("computer").set("nvram", LuaObject.of(new NvramUD()));
         var vm = loadMeasured(greg, _G, bootFile);
@@ -279,8 +262,8 @@ public class Main {
         var configPath = Path.of(projDir, "config.json");
         if (!Files.exists(configPath)) {
             Files.writeString(configPath, new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(
-                    new Config("lua/AdvancedOS", false, false)
-                )
+                            new Config("lua/AdvancedOS", false, false)
+                    )
             );
         }
         var cfg = new ObjectMapper().readValue(Files.readString(configPath), Config.class);
@@ -318,6 +301,7 @@ public class Main {
 
         println("done");
     }
+
     public static void SuppressAutoReload() {
         autoReloadDisabledUntil = System.currentTimeMillis() + fileWriteReloadSuppressDurationMs;
     }
