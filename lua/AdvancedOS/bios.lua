@@ -6,6 +6,8 @@ local ok, rv = xpcall(function()
 	   computer.nvram.test = 123
 	   print(computer.nvram.test)
 	   computer.nvram.test = "bla"
+	   component.getFirst("bios"):setData("testbiosdata")
+	   print("bios data:",component.getFirst("bios"):getData())
 	   print(computer.nvram.test)
 	   if t == "disk" then
 		  --print("has boot file? ", a.fileExists("boot.lua"))
