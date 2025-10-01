@@ -3,11 +3,15 @@ local ok, rv = xpcall(function()
 	local idx = 1
 	for t, a in component.list() do
 	   print(t, a.id)
+	   computer.nvram.test = 123
+	   print(computer.nvram.test)
+	   computer.nvram.test = "bla"
+	   print(computer.nvram.test)
 	   if t == "disk" then
 		  --print("has boot file? ", a.fileExists("boot.lua"))
 		  if a:fileExists("boot.lua") then
 			 print("Bootable file found on disk #"..idx.." - reading...")
-			 local code = a:open("boot.lua").read()
+			 local code = a:open("boot.lua"):read()
 			 print("Compiling boot.lua...")
 			 --print(code, type(code))
 			 _G.bootDrive = a

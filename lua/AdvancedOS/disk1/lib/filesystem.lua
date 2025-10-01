@@ -60,17 +60,17 @@ end
 
 function fs:readAllText(filePath)
     local drive, drivePath = findDriveAndDrivePath(filePath)
-    return drive:open(drivePath).read()
+    return drive:open(drivePath):read()
 end
 
 function fs:writeAllText(filePath, content)
     local drive, drivePath = findDriveAndDrivePath(filePath)
-    return drive:open(drivePath).write(content)
+    return drive:open(drivePath):write(content)
 end
 
 function fs:appendAllText(filePath, content)
     local drive, drivePath = findDriveAndDrivePath(filePath)
-    return drive:open(drivePath).append(content)
+    return drive:open(drivePath):append(content)
 end
 
 function fs:fileExists(filePath)

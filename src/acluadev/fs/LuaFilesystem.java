@@ -58,7 +58,7 @@ public class LuaFilesystem {
                     }
                 }
             }
-            return LuaFsFile.createAsUserdata(fs.getOrCreateFile(fileName));
+            return LuaObject.of(new LuaFsFile(fs.getOrCreateFile(fileName)));
         }));
         reg.register("list", AtomicLuaFunction.forOneResult(reg, (vm, disk, path) -> {
             var fs = getFsFromDisk(disk);
