@@ -20,7 +20,7 @@ public class ComputerUD implements LuaUserData {
 
     @LuaExposed(LuaExposed.Policy.READ)
     public final LuaProperty id = LuaProperty.ofString(
-            () -> "bios",
+            () -> "computer",
             null
     );
 
