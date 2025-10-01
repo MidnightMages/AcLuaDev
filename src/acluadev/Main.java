@@ -2,8 +2,8 @@ package acluadev;
 
 import acluadev.fs.SandboxedFs;
 import acluadev.misc.BiosUD;
+import acluadev.misc.ComputerUD;
 import acluadev.misc.DiskUD;
-import acluadev.misc.NvramUD;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.asdf00.jluavm.LuaVM;
@@ -12,10 +12,6 @@ import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -33,7 +29,7 @@ import java.util.stream.Collectors;
 public class Main {
 
     private static Console console;
-    private static AcEventQueue eventQueue;
+    public static AcEventQueue eventQueue;
     private static Thread lvmThread;
 
     private final static long fileWriteReloadSuppressDurationMs = 1000;
@@ -78,36 +74,6 @@ public class Main {
         System.out.print(s);
     }
 
-    private static void playBeep(double frequency, double duration) {
-        final float sampleRate = 44100.0f;
-        final float volume = 0.05f;
-        try {
-            AudioFormat audioFormat = new AudioFormat(sampleRate, 8, 1, true, false);
-            SourceDataLine line = AudioSystem.getSourceDataLine(audioFormat);
-            line.open(audioFormat);
-            line.start();
-
-            int numSamples = (int) (sampleRate * duration);
-            byte[] buffer = new byte[numSamples];
-
-            for (int i = 0; i < numSamples; i++) {
-                double t = i / sampleRate;
-
-                // make a square sound
-                byte value = (byte) (volume * Byte.MAX_VALUE * (Math.sin(2 * Math.PI * frequency * t) > 0 ? 1 : 0));
-                if (i > 1) // smooth over the last few samples to make the lower frequences better to
-                    value = (byte) ((value + buffer[i - 1] + buffer[i - 2]) / 3f);
-
-                buffer[i] = value;
-            }
-
-            line.write(buffer, 0, buffer.length);
-            line.drain();
-            line.close();
-        } catch (LineUnavailableException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private static LuaVM loadMeasured(ApiFunctionRegistry reg, LuaObject env, String code) {
         println("Loading");
@@ -139,7 +105,6 @@ public class Main {
 
         var greg = new ScopedMixedStateFunctionRegistry("testHarness");
         var componentRegistry = greg.forTable("component");
-        var computerRegistry = greg.forTable("computer");
 
         var allComponents = new ArrayList<LuaComponent>();
         var _G = LuaObject.table();
@@ -183,27 +148,11 @@ public class Main {
         }));
         internetReg.addFunctionsToTable(internetComp);
         allComponents.add(new LuaComponent("internet", internetComp));
-        // Speaker
-        computerRegistry.register("beep", AtomicLuaFunction.forZeroResults(greg, (vm, frequency, duration) -> {
-            var freq = frequency.asDouble();
-            var dur = Math.min(Math.max(duration.asDouble(), 0), 5);
-            if (freq < 20 || freq > 2000) {
-                vm.error(LuaObject.of("Invalid frequency %s. Must be in range [20, 2000]".formatted(freq)));
-            }
-
-
-            if (cfg.enableComputerBeep())
-                playBeep(freq, dur);
-        }));
 
         componentRegistry.register("list", createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
         componentRegistry.register("getFirst", AtomicLuaFunction.forOneResult(greg, (vm, type) ->
                 allComponents.stream().filter(x -> x.type().equals(type.asString())).map(LuaComponent::comp).findFirst().orElse(LuaObject.NIL))
         );
-        computerRegistry.register("getMachineEvent", AtomicLuaFunction.forManyResults(greg, vm -> {
-            var e = eventQueue.getQueuedEventOrNull();
-            return e == null ? new LuaObject[]{LuaObject.NIL} : e;
-        }));
 
         greg.register("sleep", AtomicLuaFunction.forZeroResults(greg, (vm, time) -> {
             try {
@@ -233,7 +182,8 @@ public class Main {
         allComponents.add(new LuaComponent("bios", LuaObject.of(new BiosUD())));
 
         greg.addFunctionsToTable(_G);
-        _G.get("computer").set("nvram", LuaObject.of(new NvramUD()));
+
+        _G.set("computer", LuaObject.of(new ComputerUD(cfg.enableComputerBeep())));
         var vm = loadMeasured(greg, _G, bootFile);
 
         for (var comp : allComponents)
