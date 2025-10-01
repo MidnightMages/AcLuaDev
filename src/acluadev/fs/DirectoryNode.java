@@ -51,13 +51,13 @@ public class DirectoryNode {
         return splitted.length == 1 ? childDirs.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getDirectory(splitted[1])).orElse(null);
     }
 
-    public DirectoryNode createDirectoryAndParents(String s){
+    public DirectoryNode createDirectoryAndParents(String s) {
         if (s.isEmpty())
             return this;
 
         var splitted = s.split("/", 2);
         var childDir = childDirs.getOrDefault(splitted[0], null);
-        if(childDir == null) {
+        if (childDir == null) {
             childDir = new DirectoryNode(splitted[0], this, isPhysReadOnly);
             childDirs.put(splitted[0], childDir);
         }

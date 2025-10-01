@@ -16,7 +16,7 @@ public class NvramUD implements LuaUserData {
 
     @Override
     public LuaObject luaGeneralGet(LuaObject key) throws LuaJavaError {
-        if(!key.isString())
+        if (!key.isString())
             return null;
 
         return backing.getOrDefault(key.asString(), null);
