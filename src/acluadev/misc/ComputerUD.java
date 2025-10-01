@@ -14,7 +14,12 @@ import java.util.Map;
 
 import static acluadev.Main.eventQueue;
 
-public class ComputerUD implements LuaUserData {
+public class ComputerUD extends BaseUDComponent {
+    @Override
+    protected String getComponentType() {
+        return "computer";
+    }
+
     private final boolean enableBeep;
 
 

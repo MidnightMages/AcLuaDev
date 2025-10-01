@@ -102,11 +102,8 @@ public class Main {
         console.onKeyReleased = eventQueue::addKeyReleased;
         console.onKeyTyped = eventQueue::addKeyTyped;
 
-        var greg = new ScopedMixedStateFunctionRegistry("testHarness");
-
+        // REGISTER USERDATA COMPONENTS
         var componentReg = new ComponentRegistryUD();
-        var _G = LuaObject.table();
-
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
             var dp = luaRootDir.resolve("disk" + i);
@@ -125,7 +122,10 @@ public class Main {
         }
         componentReg.registerComponent(new InternetUD());
         componentReg.registerComponent(new BiosUD());
-
+        componentReg.registerComponent(new ComputerUD(cfg.enableComputerBeep()));
+        // --------------------------
+        // DEFINE GLOBALS
+        var greg = new ScopedMixedStateFunctionRegistry("testHarness");
         greg.register("sleep", AtomicLuaFunction.forZeroResults(greg, (vm, time) -> {
             try {
                 Thread.sleep((int) (time.asDouble() * 1000));
@@ -150,14 +150,16 @@ public class Main {
                 throw new RuntimeException(e);
             }
         }));
+        // --------------------------
 
+        // SET UP GLOBAL ENV
+        var _G = LuaObject.table();
         greg.addFunctionsToTable(_G);
 
-        _G.set("computer", LuaObject.of(new ComputerUD(cfg.enableComputerBeep())));
+        // ADD COMPONENT TO _G
         _G.set("component", LuaObject.of(componentReg));
-
-        var vm = loadMeasured(greg, _G, bootFile);
         componentReg.addAllComponentsToEventQueue(eventQueue);
+        var vm = loadMeasured(greg, _G, bootFile);
         println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C
         println("============ EXECUTING ============");
         var res = vm.run();

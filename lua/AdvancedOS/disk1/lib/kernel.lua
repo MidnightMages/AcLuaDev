@@ -1,5 +1,7 @@
 local kernel = {}
 
+local computer = component:getFirst("computer")
+
 ---@class processStartData : table
 ---@field priority integer
 ---@field coroutines thread[]

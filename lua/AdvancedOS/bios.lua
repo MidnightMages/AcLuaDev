@@ -1,5 +1,6 @@
 local ok, rv = xpcall(function()
 	_G.components = {}
+	local computer = component:getFirst("computer")
 	local idx = 1
 	for t, a in component:list() do
 	   print(t, a.id)
