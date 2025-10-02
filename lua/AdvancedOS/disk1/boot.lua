@@ -6,6 +6,14 @@ function _G.pp(tbl)
         print(k, ":", v)
     end
 end
+       
+local ud = bootDrive
+print("------------------READABLE------------------")
+pp(vm.listReadableUDKeys(ud))
+print("--------------------------------------------")
+print("------------------WRITABLE------------------")
+pp(vm.listWritableUDKeys(ud))
+print("--------------------------------------------")
 
 _ENV._EXT.string = _ENV.string
 function string.endsWith(str, suffix) return string.sub(str, #str-#suffix+1) == suffix end
