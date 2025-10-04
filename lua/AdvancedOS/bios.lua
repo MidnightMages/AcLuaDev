@@ -34,6 +34,7 @@ local ok, rv = xpcall(function()
 		  end
 	   end
 	end 
+	print("No bootable medium found!")
 end, debug.traceback)
 if not ok then
 	error("bios error: "..tostring(rv), 0)

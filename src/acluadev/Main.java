@@ -7,20 +7,14 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.api.functions.ApiFunctionRegistry;
 import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
-import dev.asdf00.jluavm.api.userdata.LuaUserData;
 import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -125,7 +119,7 @@ public class Main {
         componentReg.registerComponent(new ComputerUD(cfg.enableComputerBeep()));
         // --------------------------
         // DEFINE GLOBALS
-        var greg = new ScopedMixedStateFunctionRegistry("testHarness");
+        var greg = new ExtendedMixedStateFunctionRegistry("testHarness");
         greg.register("sleep", AtomicLuaFunction.forZeroResults(greg, (vm, time) -> {
             try {
                 Thread.sleep((int) (time.asDouble() * 1000));

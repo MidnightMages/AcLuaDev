@@ -4,8 +4,8 @@ import dev.asdf00.jluavm.api.functions.MixedStateFunctionRegistry;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 
-public class ScopedMixedStateFunctionRegistry extends MixedStateFunctionRegistry {
-    public ScopedMixedStateFunctionRegistry(String id) {
+public class ExtendedMixedStateFunctionRegistry extends MixedStateFunctionRegistry {
+    public ExtendedMixedStateFunctionRegistry(String id) {
         super(id);
     }
 
