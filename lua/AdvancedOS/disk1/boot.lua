@@ -84,7 +84,7 @@ end
 local bootDrive = _G.bootDrive
 _G.components = {}
 
-for k,v in component.list() do
+for k,v in component:list() do
     components[k] = v
 end
 if bootDrive == nil then

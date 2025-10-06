@@ -1,6 +1,7 @@
 package acluadev.misc;
 
 import acluadev.AcEventQueue;
+import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.api.userdata.*;
 import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
@@ -25,8 +26,27 @@ public class ComponentRegistryUD implements LuaUserData {
         }
     }
 
-    @LuaExposed(LuaExposed.Policy.READ)
-    public LuaObject list = LuaObject.of(createIterFunction(() -> allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new)));
+    @LuaCallable
+    public LuaObject[] list() { // TODO replace with something that can be serialized
+        var rets = allComponents.stream().map(LuaComponent::asLuaObj).toArray(LuaObject[][]::new);
+        return new LuaObject[]{
+                AtomicLuaFunction.forManyResults(null, (vm, state) -> {
+                    var oldIdx = state.get(LuaObject.of(0));
+                    if (!oldIdx.isLong()) {
+                        vm.error(LuaObject.of("Internal error, or someone messed with the iterator state"));
+                        return null;
+                    }
+                    int nuIdx = (int) oldIdx.asLong() + 1;
+                    if (nuIdx < rets.length && nuIdx >= 0) {
+                        state.set(LuaObject.of(0), LuaObject.of(nuIdx));
+                        return rets[nuIdx];
+                    } else {
+                        return new LuaObject[0];
+                    }
+                }).obj(),
+                LuaObject.table(LuaObject.of(0), LuaObject.of(-1))
+        };
+    }
 
     @LuaCallable
     public LuaObject getFirst(String componentType) {
