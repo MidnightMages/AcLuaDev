@@ -17,7 +17,7 @@ public class ComponentRegistryUD implements LuaUserData {
     private final ArrayList<LuaComponent> allComponents = new ArrayList<>();
 
     public void registerComponent(BaseUDComponent component) {
-        allComponents.add(new LuaComponent(component.type.get().asString(), LuaObject.of(component)));
+        allComponents.add(new LuaComponent(component.componentType.get().asString(), LuaObject.of(component)));
     }
 
     public record LuaComponent(String type, LuaObject comp) {

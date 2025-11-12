@@ -13,7 +13,7 @@ public abstract class BaseUDComponent implements LuaUserData {
     protected int componentUid =  nextComponentUid.getAndIncrement();
 
     @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty type = LuaProperty.ofString(this::getComponentType, null);
+    public final LuaProperty componentType = LuaProperty.ofString(this::getComponentType, null);
 
     @LuaExposed(LuaExposed.Policy.READ)
     public final LuaProperty uid = LuaProperty.ofInt(() -> componentUid, null);

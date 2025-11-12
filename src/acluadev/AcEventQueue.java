@@ -40,6 +40,6 @@ public class AcEventQueue {
         assert !comp.isNil();
         var ud = UDTranslators.lo2ud(BaseUDComponent.class, comp);
         assert ud != null;
-        addRaw("componentAdded", ud.type.get(), comp);
+        addRaw("componentAdded", ud.componentType.get(), comp);
     }
 }
