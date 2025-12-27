@@ -1,6 +1,17 @@
+component = components
 local ok, rv = xpcall(function()
+	local oldPrint = print
+	print = function(...)
+		if oldPrint then oldPrint(...) end
+		component:getFirst("screen"):print(...)
+	end
+	local oldPrintInline = printInline
+	printInline = function(...)
+		if oldPrintInline then oldPrintInline(...) end
+		component:getFirst("screen"):printInline(...)
+	end
 	_G.components = {}
-	local computer = component:getFirst("computer")
+	local computer = component:getFirst("computer") -- TODO rename component to components
 	local idx = 1
 	for t, a in component:list() do
 	   print(t, a.componentType)
@@ -10,10 +21,10 @@ local ok, rv = xpcall(function()
 	   --component:getFirst("bios"):setData("testbiosdata")
 	   --print("bios data:",component:getFirst("bios"):getData())
 	   print(computer.nvram.test)
-	   if t == "disk" then
+	   if t == "massStorage" then
 		  --print("has boot file? ", a.fileExists("boot.lua"))
 		  if a:fileExists("boot.lua") then
-			 print("Bootable file found on disk #"..idx.." - reading...")
+			 print("Bootable file found on storage #"..idx.." - reading...")
 			 local code = a:open("boot.lua"):read()
 			 print("Compiling boot.lua...")
 			 --print(code, type(code))

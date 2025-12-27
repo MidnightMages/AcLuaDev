@@ -46,7 +46,7 @@ public class InternetUD  extends BaseUDComponent {
     }
 
     @LuaDeserializer
-    public static BiosUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
+    public static InternetUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
         // TODO actually provide serializaion
         return null;
     }

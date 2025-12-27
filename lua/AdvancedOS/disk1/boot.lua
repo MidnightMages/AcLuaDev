@@ -89,7 +89,7 @@ for k,v in component:list() do
 end
 if bootDrive == nil then
     for t, a in pairs(components) do 
-        if t == "disk" and a.fileExists("boot.lua") then bootDrive = a; break; end        
+        if t == "massStorage" and a.fileExists("boot.lua") then bootDrive = a; break; end        
     end
 end
 assert(bootDrive ~= nil, "unable to rediscover bootdrive")

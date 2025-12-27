@@ -84,9 +84,9 @@ public class Main {
     }
 
     private static LuaVM startLuaVm(Path luaRootDir, Config cfg) {
-        String bootFile; // read bios file
+        String bootFile; // read uefi file
         try {
-            bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("bios.lua")));
+            bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("uefi.lua")));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -110,13 +110,21 @@ public class Main {
             }
             fs.init(dp);
 
-            var ud = new DiskUD(i);
+            var ud = new MassStorageUD(i);
             ud.init(fs);
             componentReg.registerComponent(ud);
         }
         componentReg.registerComponent(new InternetUD());
         componentReg.registerComponent(new BiosUD());
         componentReg.registerComponent(new ComputerUD(cfg.enableComputerBeep()));
+        componentReg.registerComponent(new ScreenUD((args, doNewline) -> {
+            var str = Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t"));
+            if (doNewline)
+                printlnLUA(str);
+            else
+                printInlineLUA(str);
+        }));
+
         // --------------------------
         // DEFINE GLOBALS
         var greg = new ExtendedMixedStateFunctionRegistry("testHarness");
@@ -127,10 +135,6 @@ public class Main {
                 throw new RuntimeException(e);
             }
         }));
-        greg.register("print",
-                AtomicLuaFunction.vaForZeroResults(greg, (vm, args) -> printlnLUA(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))));
-        greg.register("printInline",
-                AtomicLuaFunction.vaForZeroResults(greg, (vm, args) -> printInlineLUA(Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t")))));
 
         var br = new BufferedReader(new InputStreamReader(System.in));
         greg.register("readline", AtomicLuaFunction.forOneResult(greg, (vm, msg) -> {
@@ -151,7 +155,7 @@ public class Main {
         greg.addFunctionsToTable(_G);
 
         // ADD COMPONENT TO _G
-        _G.set("component", LuaObject.of(componentReg));
+        _G.set("components", LuaObject.of(componentReg));
         componentReg.addAllComponentsToEventQueue(eventQueue);
         var vm = loadMeasured(greg, _G, bootFile);
         println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C

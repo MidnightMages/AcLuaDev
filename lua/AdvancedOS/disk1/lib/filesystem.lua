@@ -121,8 +121,8 @@ function fs:init(bootDrive)
                 local validDiskIds = ""
                 local found = false
                 for t2, a in pairs(components) do
-                    if t2 ~= "disk"  then goto continue end
-                    local componentDiskId = "disk_"..a.diskSlot
+                    if t2 ~= "massStorage"  then goto continue end
+                    local componentDiskId = "massStorage_"..a.diskSlot
                     print(t2, componentDiskId, diskId)
                     if componentDiskId == diskId then
                         fs:addMountPoint(path, a)
@@ -134,7 +134,7 @@ function fs:init(bootDrive)
                     ::continue::
                 end
                 if not found then
-                    error("Unable to find drive '"..tostring(diskId).."' for mountpoint '"..tostring(path).."'! Valid drives found: "..validDiskIds)
+                    error("Unable to find storage '"..tostring(diskId).."' for mountpoint '"..tostring(path).."'! Valid drives found: "..validDiskIds)
                 end
             end
         end

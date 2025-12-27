@@ -14,10 +14,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-public class DiskUD extends BaseUDComponent {
+public class MassStorageUD extends BaseUDComponent {
     @Override
     protected String getComponentType() {
-        return "disk";
+        return "massStorage";
     }
 
     private SandboxedFs fs;
@@ -30,7 +30,7 @@ public class DiskUD extends BaseUDComponent {
     );
 
 
-    public DiskUD(int diskId) {
+    public MassStorageUD(int diskId) {
         this.diskId = diskId;
     }
 
@@ -153,7 +153,7 @@ public class DiskUD extends BaseUDComponent {
     }
 
     @LuaDeserializer
-    public static DiskUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
+    public static MassStorageUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
         // TODO actually provide serializaion
         return null;
     }
