@@ -122,7 +122,7 @@ function fs:init(bootDrive)
                 local found = false
                 for t2, a in pairs(components) do
                     if t2 ~= "massStorage"  then goto continue end
-                    local componentDiskId = "massStorage_"..a.diskSlot
+                    local componentDiskId = "massStorage_"..a.diskId
                     print(t2, componentDiskId, diskId)
                     if componentDiskId == diskId then
                         fs:addMountPoint(path, a)

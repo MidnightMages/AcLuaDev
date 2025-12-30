@@ -20,18 +20,24 @@ public class MassStorageUD extends BaseUDComponent {
         return "massStorage";
     }
 
+    @LuaExposed(LuaExposed.Policy.READ)
+    public final LuaProperty storageApiType = LuaProperty.ofString(() -> "managed", null);
+
+    @LuaExposed(LuaExposed.Policy.READ)
+    public final LuaProperty storageFamilyName = LuaProperty.ofString(() -> "hdd", null);
+
     private SandboxedFs fs;
 
-    private int diskId = -1;
+    private int _diskId = -1;
     @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty diskSlot = LuaProperty.ofInt(
-            () -> diskId,
+    public final LuaProperty diskId = LuaProperty.ofInt(
+            () -> _diskId,
             null
     );
 
 
     public MassStorageUD(int diskId) {
-        this.diskId = diskId;
+        this._diskId = diskId;
     }
 
     public void init(SandboxedFs fileSystem) {
