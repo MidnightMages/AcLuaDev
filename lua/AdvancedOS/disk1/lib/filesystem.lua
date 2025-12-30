@@ -125,9 +125,9 @@ local function tableContains(t, value)
     return false
 end
 
-function fs:copyRecursive(srcPath, destPath, blacklistOrNil)
+function fs:copyRecursive(srcPath, destPath, blacklistOrNil, verboseOrNil)
     if blacklistOrNil and tableContains(blacklistOrNil, srcPath) then return end
-    print("Copying: ".. srcPath .." --> "..destPath)
+    if verboseOrNil then print("Copying: ".. srcPath .." --> "..destPath) end
     if not string.endsWith(srcPath, "/") then -- if file
         fs:writeAllText(destPath, fs:readAllText(srcPath))
         return
@@ -138,7 +138,7 @@ function fs:copyRecursive(srcPath, destPath, blacklistOrNil)
 
     -- if directory
     for _, f in ipairs(fs:list(srcPath)) do
-        fs:copyRecursive(srcPath .. f, destPath .. f, blacklistOrNil)
+        fs:copyRecursive(srcPath .. f, destPath .. f, blacklistOrNil, verboseOrNil)
     end
 end
 

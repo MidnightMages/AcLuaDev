@@ -234,7 +234,7 @@ if bootCfg.showLiveSystemMenu then
         -- TODO clear the target filesystem before writing
         print("Copying files...")
         local blacklist = {destMntPath, "/boot.cfg"}
-        fs:copyRecursive("/", destMntPath, blacklist)
+        fs:copyRecursive("/", destMntPath, blacklist, true)
         print("Installation complete. Press enter to reboot.")
         readPrimitiveInput()
 
