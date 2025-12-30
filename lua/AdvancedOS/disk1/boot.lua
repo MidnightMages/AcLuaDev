@@ -235,9 +235,9 @@ if bootCfg.showLiveSystemMenu then
         print("Copying files...")
         local blacklist = {destMntPath, "/boot.cfg"}
         fs:copyRecursive("/", destMntPath, blacklist, true)
-        print("Installation complete. Press enter to reboot.")
+        print("Installation complete. Press enter to exit.")
         readPrimitiveInput()
-
+        return
     elseif option == 2 then
         -- continue
     else
