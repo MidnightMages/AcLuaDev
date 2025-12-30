@@ -38,7 +38,9 @@ public class VirtualFile {
         if (!parentFolder.isPhysReadOnly) {
             try {
                 Main.SuppressAutoReload();
-                Files.writeString(getRealDiskPath(), content);
+                var realDiskPath = getRealDiskPath();
+                Files.createDirectories(realDiskPath.getParent());
+                Files.writeString(realDiskPath, content);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
