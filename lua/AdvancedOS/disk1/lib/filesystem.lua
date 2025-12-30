@@ -28,6 +28,9 @@ local function normalizePath(path)
     return output
 end
 
+---comment
+---@param path any
+---@param drive userdata
 function fs:addMountPoint(path, drive)
     if not string.endsWith(path, "/") then
         path = path .. "/"
@@ -36,6 +39,10 @@ function fs:addMountPoint(path, drive)
     print("Adding mount: '"..tostring(path).."'")
     assert(not mounts[path], "mount point '"..path.."' already exists")
     mounts[path] = drive
+end
+
+function fs:getMountPointTable()
+    return {table.unpack(mounts)}
 end
 
 local function getMountPoint(path)
@@ -68,7 +75,7 @@ end
 
 function fs:writeAllText(filePath, content)
     local drive, drivePath = findDriveAndDrivePath(filePath)
-    return drive:open(drivePath):write(content)
+    return drive:open(drivePath, true):write(content)
 end
 
 function fs:appendAllText(filePath, content)
@@ -84,6 +91,11 @@ end
 function fs:directoryExists(filePath)
     local drive, drivePath = findDriveAndDrivePath(filePath)
     return drive:directoryExists(drivePath)
+end
+
+function fs:createDirectory(filePath)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
+    drive:makeDirectory(drivePath)
 end
 
 function fs:list(filePath)
@@ -102,6 +114,32 @@ function fs:list(filePath)
     end
     --print(res)
     return res
+end
+
+local function tableContains(t, value)
+    for index, v in ipairs(t) do
+        if value == v then
+            return true
+        end
+    end
+    return false
+end
+
+function fs:copyRecursive(srcPath, destPath, blacklistOrNil)
+    if blacklistOrNil and tableContains(blacklistOrNil, srcPath) then return end
+    print("Copying: ".. srcPath .." --> "..destPath)
+    if not string.endsWith(srcPath, "/") then -- if file
+        fs:writeAllText(destPath, fs:readAllText(srcPath))
+        return
+    end
+
+    assert(fs:directoryExists(srcPath), "source directory "..tostring(srcPath).." does not exist.")
+    fs:createDirectory(destPath)
+
+    -- if directory
+    for _, f in ipairs(fs:list(srcPath)) do
+        fs:copyRecursive(srcPath .. f, destPath .. f, blacklistOrNil)
+    end
 end
 
 function fs:init(bootDrive)
