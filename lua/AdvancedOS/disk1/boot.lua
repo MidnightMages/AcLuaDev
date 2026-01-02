@@ -201,7 +201,7 @@ end
 if bootCfg.showLiveSystemMenu then
     
     showHeading("INSTALL-MEDIUM BOOT MENU")
-    local option = selectIntegerOption("Select an option by typing the corresponding number:\n 1) Install\n 2) Boot from this medium directly")
+    local option = selectIntegerOption("Select an option by typing the corresponding number and pressing ENTER:\n 1) Install\n 2) Boot from this medium directly")
     if option == 1 then
         showHeading("DESTINATION DISK SELECTION")
         local destMntPath = "/mnt/"
