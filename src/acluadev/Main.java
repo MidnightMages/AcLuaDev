@@ -156,6 +156,7 @@ public class Main {
 
         // ADD COMPONENT TO _G
         _G.set("components", LuaObject.of(componentReg));
+        _G.set("_HOST", LuaObject.of("Advanced Computers Test Harness"));
         componentReg.addAllComponentsToEventQueue(eventQueue);
         var vm = loadMeasured(greg, _G, bootFile);
         println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C
