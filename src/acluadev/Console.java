@@ -47,7 +47,7 @@ public class Console implements KeyListener {
         textPane.setForeground(Color.WHITE);
         Font font;
         try {
-            font = Font.createFont(Font.TRUETYPE_FONT, getNonNullResourceStream("DejavuSansMono-5m7L.ttf"));
+            font = Font.createFont(Font.TRUETYPE_FONT, getNonNullResourceStream("acfont-firacode-regular.ttf"));
         } catch (FontFormatException | IOException e) {
             throw new RuntimeException(e);
         }
