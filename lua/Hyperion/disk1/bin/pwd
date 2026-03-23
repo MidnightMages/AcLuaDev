@@ -1,2 +1,0 @@
-local shell=require("shell")
-print(shell.dir())

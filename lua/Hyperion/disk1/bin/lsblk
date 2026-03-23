@@ -1,4 +1,0 @@
-local fs=require("filesystem")
-for i,v in fs.getDiskBlocks() do
-    print(i,v)
-end

@@ -1,3 +1,0 @@
-local events={name="events"}
-events.key="keyTyped"
-return events
