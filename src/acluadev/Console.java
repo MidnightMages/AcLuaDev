@@ -44,7 +44,6 @@ public class Console implements KeyListener {
 
         var textPane = new JTextPane();
         textPane.setBackground(Color.BLACK);
-        textPane.setCaretColor(Color.WHITE);
         textPane.setForeground(Color.WHITE);
         Font font;
         try {
@@ -55,7 +54,7 @@ public class Console implements KeyListener {
         textPane.setFont(font.deriveFont(14f));
         textPane.setEditable(false);
         var caret = (DefaultCaret) textPane.getCaret();
-        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+        caret.setVisible(false);
 
         var scrollPane = new JScrollPane(textPane);
         scrollPane.setBorder(new LineBorder(Color.BLACK));
@@ -117,8 +116,6 @@ public class Console implements KeyListener {
             }
             d.insertString(d.getLength(), sb.toString(), null);
             lastLineLength = 0;
-
-            textPane.setCaretPosition(d.getLength()); // reset caret to the end position always
         } catch (BadLocationException e) {
             throw new RuntimeException(e);
         }
@@ -162,6 +159,7 @@ public class Console implements KeyListener {
         if (!newContent.equals(lastContent)) {
             lastContent = newContent;
             var d = textPane.getStyledDocument();
+            textPane.select(0, 0);
             try {
                 d.remove(0, d.getLength());
                 d.insertString(0, newContent, null);
