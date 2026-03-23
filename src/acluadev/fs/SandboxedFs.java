@@ -22,8 +22,8 @@ public class SandboxedFs {
         return s.startsWith("/") ? s.substring(1) : s;
     }
 
-    public VirtualFile getFile(String s) {
-        return root.getFile(trimPath(s));
+    public VirtualFile getFileOrNull(String s) {
+        return root.getFileOrNull(trimPath(s));
     }
 
     public VirtualFile getOrCreateFile(String s) {
@@ -32,6 +32,10 @@ public class SandboxedFs {
 
     public DirectoryNode getDirectory(String s) {
         return root.getDirectory(trimPath(s));
+    }
+
+    public boolean directoryExists(String s) {
+        return getDirectory(s) != null;
     }
 
     public DirectoryNode createDirectoryAndParents(String s) {
@@ -47,7 +51,7 @@ public class SandboxedFs {
     }
 
     public boolean fileExists(String path) {
-        return getFile(path) != null;
+        return getFileOrNull(path) != null;
     }
 
     public boolean tryDeleteFile(String s) {

@@ -1,6 +1,9 @@
 package acluadev.misc;
 
-import dev.asdf00.jluavm.api.userdata.*;
+import acluadev.LuaVirtualMachine;
+import dev.asdf00.jluavm.api.userdata.LuaCallable;
+import dev.asdf00.jluavm.api.userdata.LuaDeserializer;
+import dev.asdf00.jluavm.api.userdata.LuaExposed;
 import dev.asdf00.jluavm.exceptions.LuaJavaError;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 import dev.asdf00.jluavm.utils.ByteArrayReader;
@@ -9,32 +12,37 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Stream;
 
-import static acluadev.Main.eventQueue;
-
-public class ComputerUD extends BaseUDComponent {
-    @Override
-    protected String getComponentType() {
-        return "computer";
-    }
-
-    private final boolean enableBeep;
-
+public final class ComputerUD extends BaseAcComponent {
+    private final ConcurrentLinkedQueue<LuaObject[]> eventQueue = new ConcurrentLinkedQueue<>();
+    private final long bootTimeMillis = System.currentTimeMillis();
 
     @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty id = LuaProperty.ofString(
-            () -> "computer",
-            null
-    );
-
-    public ComputerUD(boolean enableComputerBeep) {
-        enableBeep = enableComputerBeep;
-    }
+    public LuaObject uefi;
 
     @LuaExposed(LuaExposed.Policy.READ)
-    public LuaObject nvram = LuaObject.of(new NvramUD());
+    public LuaObject nvram = LuaObject.nil(); // requires mainboard tier 2 or higher
+
+    @LuaExposed(LuaExposed.Policy.READ)
+    public LuaObject tpm = LuaObject.nil(); // requires mainboard tier 3
+
+    public ComputerUD(UefiUD uefi, NvramUD nvram) {
+        super("computer");
+        this.uefi = LuaObject.of(uefi);
+        this.nvram = LuaObject.of(nvram);
+    }
+
+    /**
+     * This method may be called from outside the LUA thread and enqueues a custom machine event to be read by the host
+     * LUA program.
+     */
+    public void triggerMachineEvent(String eventName, LuaObject... args) {
+        eventQueue.add(Stream.concat(Stream.of(LuaObject.of(eventName)), Arrays.stream(args)).toArray(LuaObject[]::new));
+    }
 
     @LuaCallable
     public void beep(double freq, double duration) {
@@ -43,25 +51,42 @@ public class ComputerUD extends BaseUDComponent {
             throw new LuaJavaError("Invalid frequency %s. Must be in range [20, 2000]".formatted(freq));
         }
 
-        if (enableBeep)
+        if (acVm.enableBeep)
             playBeep(freq, dur);
     }
-
     @LuaCallable
     public LuaObject[] getMachineEvent() {
-        var e = eventQueue.getQueuedEventOrNull();
+        LuaObject[] e = eventQueue.poll();
         return e == null ? new LuaObject[]{LuaObject.NIL} : e;
     }
 
+    @LuaCallable
+    public double getEpoch() {
+        return System.currentTimeMillis() / 1000d;
+    }
+
+    @LuaCallable
+    public long getEpochMs() {
+        return System.currentTimeMillis();
+    }
+
+    @LuaCallable
+    public String getDate() {
+        return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXX").format(new Date());
+    }
+
+    @LuaCallable
+    public double getUptime() {
+        return (System.currentTimeMillis() - bootTimeMillis) / 1000d;
+    }
+
     @Override
-    public byte[] luaSerialize(List<byte[]> serialData, Map<LuaObject, Integer> mappedObjs) {
-        // TODO actually provide serializaion
+    public byte[] luaSerialize(List<byte[]> serialData, Map<LuaObject, Integer> mappedObjs, Object additionalData) {
         return null;
     }
 
     @LuaDeserializer
-    public static ComputerUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
-        // TODO actually provide serializaion
+    public static ComputerUD luaDeserialize(LuaObject[] objs, ByteArrayReader reader, Queue<Runnable> postActions, Object additionalData) {
         return null;
     }
 

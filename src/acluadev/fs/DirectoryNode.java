@@ -20,9 +20,9 @@ public class DirectoryNode {
         this.isPhysReadOnly = isPhysReadOnly;
     }
 
-    public VirtualFile getFile(String s) {
+    public VirtualFile getFileOrNull(String s) {
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? files.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getFile(splitted[1])).orElse(null);
+        return splitted.length == 1 ? files.get(splitted[0]) : Optional.ofNullable(childDirs.get(splitted[0])).map(x -> x.getFileOrNull(splitted[1])).orElse(null);
     }
 
     public VirtualFile getOrCreateFile(String s) {

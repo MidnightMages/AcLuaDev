@@ -1,5 +1,6 @@
 package acluadev.misc;
 
+import acluadev.LuaVirtualMachine;
 import acluadev.fs.LuaFsFileUD;
 import acluadev.fs.SandboxedFs;
 import dev.asdf00.jluavm.api.userdata.LuaCallable;
@@ -8,48 +9,31 @@ import dev.asdf00.jluavm.api.userdata.LuaExposed;
 import dev.asdf00.jluavm.api.userdata.LuaProperty;
 import dev.asdf00.jluavm.exceptions.LuaJavaError;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
+import dev.asdf00.jluavm.utils.ByteArrayBuilder;
 import dev.asdf00.jluavm.utils.ByteArrayReader;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.stream.Stream;
 
-public class MassStorageUD extends BaseUDComponent {
+public class ManagedMassStorageUD extends BaseMassStorageUD {
+    private final int diskStorageId;
+    private final SandboxedFs fs;
+
+    public ManagedMassStorageUD(String storageFamilyName, int diskStorageId, SandboxedFs fs) {
+        super(storageFamilyName, "managed");
+        this.diskStorageId = diskStorageId;
+        this.fs = fs;
+    }
+
+    /**
+     * Is supposed to only run once during object construction. NOT during deserialization
+     */
     @Override
-    protected String getComponentType() {
-        return "massStorage";
+    public void onVmInit(LuaVirtualMachine acVm) {
+        super.onVmInit(acVm);
     }
-
-    @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty storageApiType = LuaProperty.ofString(() -> "managed", null);
-
-    @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty storageFamilyName = LuaProperty.ofString(() -> "hdd", null);
-
-    private SandboxedFs fs;
-
-    private int _diskId = -1;
-    @LuaExposed(LuaExposed.Policy.READ)
-    public final LuaProperty diskId = LuaProperty.ofInt(
-            () -> _diskId,
-            null
-    );
-
-
-    public MassStorageUD(int diskId) {
-        this._diskId = diskId;
-    }
-
-    public void init(SandboxedFs fileSystem) {
-        if (fs != null)
-            throw new RuntimeException("init was already called");
-        fs = fileSystem;
-    }
-
-//    @LuaCallable
-//    public LuaObject open(String fileNameL) {
-//        return open(fileNameL, false);
-//    }
 
     @LuaCallable
     public LuaObject open(LuaObject[] args) {
@@ -59,20 +43,19 @@ public class MassStorageUD extends BaseUDComponent {
                 throw new LuaJavaError("Second argument must be string but was %s".formatted(fileName.getTypeAsString()));
             }
             if (args.length == 1) {
-                return open(fileName.asString(), false);
+                return openInner(fileName.asString(), false);
             } else if (args.length == 2) {
                 var autoCreate = args[1];
                 if (!autoCreate.isBoolean()) {
                     throw new LuaJavaError("Third argument must be boolean but was %s".formatted(autoCreate.getTypeAsString()));
                 }
-                return open(fileName.asString(), autoCreate.getBool());
+                return openInner(fileName.asString(), autoCreate.getBool());
             }
         }
         throw new LuaJavaError("Expected 3 arguments but got %s".formatted(args.length + 1));
     }
 
-    //@LuaCallable
-    public LuaObject open(String fileNameL, boolean autoCreate) {
+    public LuaObject openInner(String fileNameL, boolean autoCreate) {
         var fileName = fileNameL;
         if (fileName.startsWith("/"))
             fileName = fileName.substring(1);
@@ -80,6 +63,9 @@ public class MassStorageUD extends BaseUDComponent {
         if (fileName.endsWith("/")) {
             throw new LuaJavaError("Filename cannot end with a slash");
         }
+
+        if (fs.directoryExists(fileName))
+            throw new LuaJavaError("Path points to a directory");
 
         var fileExists = fs.fileExists(fileName);
         if (!fileExists) {
@@ -107,7 +93,7 @@ public class MassStorageUD extends BaseUDComponent {
 
     @LuaCallable
     public boolean fileExists(String path) {
-        return fs.getFile(path) != null;
+        return fs.getFileOrNull(path) != null;
     }
 
     @LuaCallable
@@ -117,6 +103,15 @@ public class MassStorageUD extends BaseUDComponent {
 
     @LuaCallable
     public void makeDirectory(String path) {
+        // traverse the chain and see if any parent folder name is already taken by a file, which would be illegal
+        var segments = path.split("/");
+        var currentFilePath = new StringBuilder(path.length());
+        for (int i = 0; i < segments.length; i++) {
+            currentFilePath.append('/').append(segments[i]);
+            if (fs.fileExists(currentFilePath.toString()))
+                throw new LuaJavaError("Unable to create directory or parents: a directory name is already in use by a file");
+        }
+
         fs.createDirectoryAndParents(path);
     }
 
@@ -133,7 +128,12 @@ public class MassStorageUD extends BaseUDComponent {
         if (!fs.fileExists(src)) {
             throw new LuaJavaError("File '%s' does not exist".formatted(src));
         }
-        fs.getOrCreateFile(dest).writeAllText(fs.getFile(src).readAllText());
+
+        if (fs.directoryExists(dest)) {
+            throw new LuaJavaError("Destination path is a directory");
+        }
+
+        fs.getOrCreateFile(dest).writeAllText(fs.getFileOrNull(src).readAllText());
     }
 
     @LuaCallable
@@ -149,18 +149,22 @@ public class MassStorageUD extends BaseUDComponent {
         if (!fs.fileExists(path)) {
             throw new LuaJavaError("File '%s' does not exist".formatted(path));
         }
-        return fs.getFile(path).readAllText().length();
+        return fs.getFileOrNull(path).readAllText().length();
     }
 
+
     @Override
-    public byte[] luaSerialize(List<byte[]> serialData, Map<LuaObject, Integer> mappedObjs) {
-        // TODO actually provide serializaion
+    public byte[] luaSerialize(List<byte[]> serialData, Map<LuaObject, Integer> mappedObjs, Object additionalData) {
         return null;
     }
 
     @LuaDeserializer
-    public static MassStorageUD todoDeserializer(LuaObject[] objs, ByteArrayReader reader) {
-        // TODO actually provide serializaion
+    public static ManagedMassStorageUD luaDeserialize(LuaObject[] objs, ByteArrayReader reader, Queue<Runnable> postActions, Object additionalData) {
         return null;
+    }
+
+    @Override
+    int getDiskId() {
+        return diskStorageId;
     }
 }

@@ -1,5 +1,7 @@
 package acluadev;
 
+import acluadev.misc.TextBufferUD;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
@@ -151,5 +153,21 @@ public class Console implements KeyListener {
     public void keyReleased(KeyEvent e) {
         if (this.onKeyReleased != null)
             this.onKeyReleased.accept(e);
+    }
+
+    String lastContent = null;
+
+    public void drawTextBuffer(TextBufferUD buf) {
+        var newContent = buf.getTextAsString();
+        if (!newContent.equals(lastContent)) {
+            lastContent = newContent;
+            var d = textPane.getStyledDocument();
+            try {
+                d.remove(0, d.getLength());
+                d.insertString(0, newContent, null);
+            } catch (BadLocationException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

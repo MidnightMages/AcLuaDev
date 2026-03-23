@@ -1,30 +1,21 @@
 package acluadev;
 
-import acluadev.fs.SandboxedFs;
-import acluadev.misc.*;
+import acluadev.misc.ScreenBlockEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import dev.asdf00.jluavm.LuaVM;
 import dev.asdf00.jluavm.api.functions.ApiFunctionRegistry;
 import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Main {
-
-    private static Console console;
-    public static AcEventQueue eventQueue;
-    private static Thread lvmThread;
-
     private final static long fileWriteReloadSuppressDurationMs = 1000;
     private static volatile long autoReloadDisabledUntil = System.currentTimeMillis();
 
@@ -58,132 +49,22 @@ public class Main {
     }
 
     private static void printlnLUA(String s) {
-        console.println(s);
         println(s);
     }
 
     private static void printInlineLUA(String s) {
-        console.printInline(s);
         System.out.print(s);
     }
 
 
-    private static LuaVM loadMeasured(ApiFunctionRegistry reg, LuaObject env, String code) {
-        println("Loading");
-        var n = System.nanoTime();
-        var rv = LuaVM.builder().withApiRegistry(reg).modifyEnv(t -> {
-            var map = env.asMap();
-            for (var k : map.keys()) {
-                t.set(k, map.getOrDefault(k, LuaObject.NIL));
-            }
-        }).rootFunc(code).build();
-        var n2 = System.nanoTime();
-        var delta = n2 - n;
-        println("Load finished in %.3f s".formatted(delta / 1000_000_000d));
-        return rv;
-    }
-
-    private static LuaVM startLuaVm(Path luaRootDir, Config cfg) {
-        String bootFile; // read uefi file
-        try {
-            bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("uefi.lua")));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        eventQueue = new AcEventQueue();
-        console.onKeyPressed = eventQueue::addKeyPressed;
-        console.onKeyReleased = eventQueue::addKeyReleased;
-        console.onKeyTyped = eventQueue::addKeyTyped;
-
-        // REGISTER USERDATA COMPONENTS
-        var componentReg = new ComponentRegistryUD();
-        // set up disk filesystems
-        for (int i = 1; i <= 3; i++) {
-            var dp = luaRootDir.resolve("disk" + i);
-            var fs = new SandboxedFs(dp, !cfg.allowPhysicalFilesystemWrites());
-            try {
-                if (!Files.isDirectory(dp))
-                    Files.createDirectory(dp);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            fs.init(dp);
-
-            var ud = new MassStorageUD(i);
-            ud.init(fs);
-            componentReg.registerComponent(ud);
-        }
-        componentReg.registerComponent(new InternetUD());
-        componentReg.registerComponent(new BiosUD());
-        componentReg.registerComponent(new ComputerUD(cfg.enableComputerBeep()));
-        componentReg.registerComponent(new ScreenUD((args, doNewline) -> {
-            var str = Arrays.stream(args).map(LuaObject::asString).collect(Collectors.joining("\t"));
-            if (doNewline)
-                printlnLUA(str);
-            else
-                printInlineLUA(str);
-        }));
-
-        // --------------------------
-        // DEFINE GLOBALS
-        var greg = new ExtendedMixedStateFunctionRegistry("testHarness");
-        greg.register("sleep", AtomicLuaFunction.forZeroResults(greg, (vm, time) -> {
-            try {
-                Thread.sleep((int) (time.asDouble() * 1000));
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }));
-
-        var br = new BufferedReader(new InputStreamReader(System.in));
-        greg.register("readline", AtomicLuaFunction.forOneResult(greg, (vm, msg) -> {
-            try {
-                if (!msg.isNil()) {
-                    printlnLUA(msg.asString());
-                }
-
-                return LuaObject.of(br.readLine());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }));
-        // --------------------------
-
-        // SET UP GLOBAL ENV
-        var _G = LuaObject.table();
-        greg.addFunctionsToTable(_G);
-
-        // ADD COMPONENT TO _G
-        _G.set("components", LuaObject.of(componentReg));
-        _G.set("_HOST", LuaObject.of("Advanced Computers Test Harness"));
-        componentReg.addAllComponentsToEventQueue(eventQueue);
-        var vm = loadMeasured(greg, _G, bootFile);
-        println("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // as good of a Console.Clear(); as we are gonna get :C
-        println("============ EXECUTING ============");
-        var res = vm.run();
-        println("============== DONE ============");
-        println("RESULT: " + res.state().toString() + "; " + Arrays.stream(res.returnVars()).map(Object::toString).collect(Collectors.joining()));
-        return vm;
-    }
-
-    private static void stopLuaVm() {
-        eventQueue.addRequestShutdown();
-        try {
-            lvmThread.join();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @SuppressWarnings("BusyWait")
     public static void main(String[] args) throws IOException {
-        console = Console.createConsole();
         var projDir = System.getProperty("user.dir");
         var configPath = Path.of(projDir, "config.json");
         if (!Files.exists(configPath)) {
             Files.writeString(configPath, new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(
-                            new Config("lua/AdvancedOS", false, false)
+                    new Config("lua/AdvancedOS", false,
+                            false, 1)
                     )
             );
         }
@@ -195,9 +76,20 @@ public class Main {
             System.exit(1);
         }
 
+        // persists across vms
+        ScreenBlockEntity[] screenConsoles = Stream.generate(ScreenBlockEntity::new)
+                .limit(cfg.screenCount())
+                .toArray(ScreenBlockEntity[]::new);
+        Arrays.stream(screenConsoles).forEach(x->
+                x.create());
         while (true) {
-            lvmThread = new Thread(() -> startLuaVm(watchPath, cfg));
-            console.clear();
+
+            LuaVirtualMachine vm = new LuaVirtualMachine();
+            Arrays.stream(screenConsoles).forEach(x->x.clear());
+            Arrays.stream(screenConsoles).forEach(x->x.init(vm));
+            Thread lvmThread = new Thread(() -> {
+                vm.startLuaVm(watchPath, cfg, screenConsoles);
+            });
             lvmThread.start();
             try {
                 do {
@@ -209,7 +101,12 @@ public class Main {
                 break;
             }
             try {
-                stopLuaVm();
+                vm.triggerMachineEvent("shutdown");
+                try {
+                    lvmThread.join();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             } catch (Exception ex) {
                 println(ex.toString());
             }
