@@ -62,11 +62,12 @@ public class Console implements KeyListener {
         scrollPane.setAutoscrolls(true);
         f.add(scrollPane, BorderLayout.CENTER);
 
-        var d = new Dimension(1000, 520);
-        f.setResizable(false);
+        // var d = new Dimension(1000, 520); // for the old screen
+        var d = new Dimension(1016, 855); // for the new 110x44 screen
+        f.setResizable(true);
         f.setSize(d);
-        f.setMaximumSize(d);
-        f.setMinimumSize(d);
+        //f.setMaximumSize(d);
+        //f.setMinimumSize(d);
 
         f.setVisible(true);
         f.setFocusable(true);
