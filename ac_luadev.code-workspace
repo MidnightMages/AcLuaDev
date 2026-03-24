@@ -1,12 +1,8 @@
 {
 	"folders": [
 		{
-			"path": "luaRootReadOnly"
+			"path": "lua/AdvancedOS"
 		}
 	],
-	"settings": {
-		"Lua.diagnostics.globals": [
-			"printInline"
-		]
-	}
+	"settings": {}
 }
