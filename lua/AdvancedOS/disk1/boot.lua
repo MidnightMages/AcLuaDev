@@ -1,120 +1,133 @@
---local a = {}
---setmetatable(a,a)
---a[1] = 1
-function _G.pp(tbl)
-    for k,v in pairs(tbl) do
-        print(k, ":", v)
-    end
-end
-       
-local ud = bootDrive
-print("------------------KEYS------------------")
-pp(vm.listUDKeys(ud))
-print("----------------------------------------")
-print(type(ud), typeof(ud))
+---@diagnostic disable: duplicate-set-field
+--[[
+Default BOOTLOADER implementation of AdvancedComputers
+This is the entry point of execution of AdvancedOS
 
-_ENV._EXT.string = _ENV.string
-function string.endsWith(str, suffix) return string.sub(str, #str-#suffix+1) == suffix end
+Expected setup from UEFI:
+- print
+- printInline
+- shutdown
+- bootDrive -- TODO take as ARGUMENT
+]]
+
+
+
+-- set up additional string functions
+print("setting up string helpers ...")
+function string.endsWith(str, suffix) return string.sub(str, #str - #suffix + 1) == suffix end
+
 function string.trimRight(str, toTrim)
     assert(#toTrim == 1, "toTrim must be exactly of length 1")
     local lastLetterToTrim = #str
     while lastLetterToTrim >= 1 do
-        if str:sub(lastLetterToTrim,lastLetterToTrim) ~= toTrim then
+        if str:sub(lastLetterToTrim, lastLetterToTrim) ~= toTrim then
             break
         else
             lastLetterToTrim = lastLetterToTrim - 1
         end
     end
-    return str:sub(1,lastLetterToTrim)
+    return str:sub(1, lastLetterToTrim)
 end
 
 function string.startsWith(str, prefix) return string.sub(str, 1, #prefix) == prefix end
+
 ---@param delim string
 ---@param ... string
 function string.join(delim, ...) return table.concat(table.pack(...), delim) end
+
 function string.split(str, delim, maxResultCountOrNil)
     assert(#delim == 1, "only delim len 1 supported for now")
-    maxResultCountOrNil = (maxResultCountOrNil or 0)-1
+    maxResultCountOrNil = (maxResultCountOrNil or 0) - 1
     local rv = {}
     local buf = ""
     for i = 1, #str do
-        local c = string.sub(str,i,i)
+        local c = string.sub(str, i, i)
         if #rv ~= maxResultCountOrNil and c == delim then
             table.insert(rv, buf)
             buf = ""
         else
-            buf = buf..c
+            buf = buf .. c
         end
     end
     table.insert(rv, buf)
     return rv
 end
+
 function string.replace(str, search, replacement)
     local rv = ""
     local consumedLen = 1
     local i = 1
-    while i<#str do
-        if string.sub(str, i, i+#search-1) == search then
-            rv = rv .. string.sub(str, consumedLen, i-1) .. replacement
-            i=i+#search
+    while i < #str do
+        if string.sub(str, i, i + #search - 1) == search then
+            rv = rv .. string.sub(str, consumedLen, i - 1) .. replacement
+            i = i + #search
             consumedLen = i
         end
-        i=i+1
+        i = i + 1
     end
     return rv .. string.sub(str, consumedLen)
 end
-function string.charCount(str, charToCount)
-    local rv = 0
-    assert(#charToCount == 1, "charToCount must be exactly of length 1")
-    for i = 1, #str do
-        if str:sub(i,i) == "charToCount" then
-            rv = rv + 1
-        end
-    end
-    return rv
+
+function string.normalizeLineEndings(str)
+    return string.replace(string.replace(str, "\r", "\n"), "\r\n", "\n")
 end
 
-function string.normalizeLineEndings(str) return string.replace(string.replace(str, "\r","\n"),"\r\n","\n") end
-
---print("this is some text")
---print(string.replace("this is some text","i","IJK"))
-
---print(string.startsWith("testbla","ttes"), "<-- test")
-
-
-
-local bootDrive = _G.bootDrive
-if bootDrive == nil then
-    for t, a in components:list() do 
-        if t == "massStorage" and a.fileExists("boot.lua") then bootDrive = a; break; end        
-    end
+-- fill extension table (which is separate to _ENV.string)
+do
+    local base = string
+    local ext = _EXT.string
+    ext.endsWith = base.endsWith
+    ext.trimRight = base.trimRight
+    ext.startsWith = base.startsWith
+    ext.join = base.join
+    ext.split = base.split
+    ext.replace = base.replace
+    ext.normalizeLineEndings = base.normalizeLineEndings
 end
-assert(bootDrive ~= nil, "unable to rediscover bootdrive")
+-- all string setup done
+
+
+
+
+
+-- Bootstrap the file system and initialize "require"
+print("setting up string helpers ...")
 
 ---@diagnostic disable-next-line: missing-fields
-_G.package = {}
+_ENV.package = {}
 package.path = "/lib/?.lua"
 package.loaded = {}
--- init filesystem
-package.loaded.filesystem = assert(load(bootDrive:open("/lib/filesystem.lua"):read(), "/lib/filesystem.lua")(), "failed to initialize filesystem")
-local fs = package.loaded.filesystem -- fs = require("filesystem")
 
+local bootDrive = _ENV.bootDrive
+assert(bootDrive, "BOOTLOADER: undefined boot drive")
+
+-- init filesystem
+package.loaded.filesystem = assert(
+    load(bootDrive:open("/sys/filesystem.lua"):read(),
+        "/sys/filesystem.lua")(),
+    "failed to initialize filesystem")
+local fs = package.loaded.filesystem -- corresponds to fs = require("filesystem")
 
 function loadfile(path)
     local c = fs:readAllText(path)
     return assert(load(c, path, "t", _ENV))
 end
+
 function dofile(path, ...) return loadfile(path)(...) end
 
-function require(moduleName)
+-- require should be a user thing, the kernel should not use that
+function require(moduleName, privileged)
     assert(moduleName and #moduleName > 0, "module name must be a nonempty string")
-    assert(#string.split(moduleName,"/"), "module name cannot contain slashes")
+    assert(#string.split(moduleName, "/"), "module name cannot contain slashes")
+
+    print()
 
     local rv = nil
     local existing = package.loaded[moduleName]
     if existing ~= nil then return existing end
-    for _, p in ipairs(string.split(package.path,";")) do
+    for _, p in ipairs(string.split(package.path, ";")) do
         local path = string.replace(p, "?", moduleName)
+        assert(privileged or not path:startsWith("/sys/"))
         if fs:fileExists(path) then
             rv = dofile(path)
             package.loaded[moduleName] = rv
@@ -122,12 +135,16 @@ function require(moduleName)
         end
     end
     if rv then return rv end
-    error("module '"..tostring(moduleName).."' could not be found in package.path")
+    error("module '" .. tostring(moduleName) .. "' could not be found in package.path")
 end
-
-fs = require("filesystem") -- to keep the lua plugin happy
-
 fs:init(bootDrive)
+-- filesystem and require done
+
+
+
+
+
+-- maybe install OS or run live system
 
 local bootCfg = { -- default options
     showLiveSystemMenu = false
@@ -148,11 +165,12 @@ if fs:fileExists("/boot.cfg") then
                     goto continue
                 end
             else
-                error("Boot cfg type of "..tostring(splitted[1]).." ("..currVType..") is not defined.")
+                error("Boot cfg type of " .. tostring(splitted[1]) .. " (" .. currVType .. ") is not defined.")
             end
-            error("Boot option "..tostring(splitted[1]).." was given an invalid value for expected type "..tostring(currVType).."!")
+            error("Boot option " ..
+                tostring(splitted[1]) .. " was given an invalid value for expected type " .. tostring(currVType) .. "!")
         end
-        error("Boot option "..tostring(splitted[1]).." does not exist!")
+        error("Boot option " .. tostring(splitted[1]) .. " does not exist!")
 
         ::continue::
     end
@@ -166,7 +184,10 @@ local function readPrimitiveInput()
             sleep(0.1)
         elseif nextEvent[1] == "keyTyped" then
             local chr = nextEvent[2]
-            if chr == "\n" then print() return readInput end
+            if chr == "\n" then
+                print()
+                return readInput
+            end
             if chr == "\b" then
                 if #readInput > 0 then
                     readInput = string.sub(readInput, 1, -2)
@@ -191,12 +212,12 @@ local function showHeading(text, spacerChar)
     spacerChar = spacerChar or "="
     local spacer = string.rep("=", #text + 4)
     local textPad = string.rep(" ", 2)
-    print(spacer.."\n"..textPad..text.."\n"..spacer)
+    print(spacer .. "\n" .. textPad .. text .. "\n" .. spacer)
 end
 if bootCfg.showLiveSystemMenu then
-    
     showHeading("INSTALL-MEDIUM BOOT MENU")
-    local option = selectIntegerOption("Select an option by typing the corresponding number and pressing ENTER:\n 1) Install\n 2) Boot from this medium directly")
+    local option = selectIntegerOption(
+        "Select an option by typing the corresponding number and pressing ENTER:\n 1) Install\n 2) Boot from this medium directly")
     if option == 1 then
         showHeading("DESTINATION DISK SELECTION")
         local destMntPath = "/mnt/"
@@ -205,30 +226,30 @@ if bootCfg.showLiveSystemMenu then
         local availableDisks = {}
         for t, a in components:list() do
             if a.componentType == "massStorage" then
-                local desc = a.storageFamilyName.."-"..a.storageApiType.."-"..tostring(a.diskId)
+                local desc = a.storageFamilyName .. "-" .. a.storageApiType .. "-" .. tostring(a.diskId)
                 local hasOs = a:fileExists("boot.lua")
                 local attribs = {}
                 if a == bootDrive then table.insert(attribs, "BOOTED FROM") end
                 table.insert(attribs, hasOs and "HAS OS" or "NO OS")
 
-                desc = desc .. " ["..table.concat(attribs, ", ").."]"
+                desc = desc .. " [" .. table.concat(attribs, ", ") .. "]"
 
                 local isAllowed = a.storageApiType == "managed" and a ~= bootDrive
-                suffix = suffix.."\n "..(isAllowed and tostring(nextId) or "-")..") "..desc
+                suffix = suffix .. "\n " .. (isAllowed and tostring(nextId) or "-") .. ") " .. desc
                 if isAllowed then
-                    availableDisks[nextId] = {a, hasOs}
+                    availableDisks[nextId] = { a, hasOs }
                     nextId = nextId + 1
                 end
             end
         end
 
-        local diskOption = selectIntegerOption("Found disks are listed below. Select one to install to:\n"..suffix)
+        local diskOption = selectIntegerOption("Found disks are listed below. Select one to install to:\n" .. suffix)
 
         print("Mounting...")
         fs:addMountPoint(destMntPath, availableDisks[diskOption][1])
         -- TODO clear the target filesystem before writing
         print("Copying files...")
-        local blacklist = {destMntPath, "/boot.cfg"}
+        local blacklist = { destMntPath, "/boot.cfg" }
         fs:copyRecursive("/", destMntPath, blacklist, true)
         print("Installation complete. Press enter to exit.")
         readPrimitiveInput()
@@ -236,10 +257,17 @@ if bootCfg.showLiveSystemMenu then
     elseif option == 2 then
         -- continue
     else
-        error("received out of range option: "..tostring(option))
+        error("received out of range option: " .. tostring(option))
     end
-    
 end
+
+-- live system stuff done
+
+
+
+
+
+-- init
 
 print("Loading kernel...")
 local kernel = require("kernel")
