@@ -35,7 +35,7 @@ public class LuaVirtualMachine {
 
         String bootFile; // read uefi file
         try {
-            bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("uefi.lua")));
+            bootFile = Files.readString(luaRootDir.resolve("uefi.lua"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
