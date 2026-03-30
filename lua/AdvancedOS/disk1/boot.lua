@@ -11,87 +11,8 @@ Expected setup from UEFI:
 ]]
 
 
-
--- set up additional string functions
-print("setting up string helpers ...")
-function string.endsWith(str, suffix) return string.sub(str, #str - #suffix + 1) == suffix end
-
-function string.trimRight(str, toTrim)
-    assert(#toTrim == 1, "toTrim must be exactly of length 1")
-    local lastLetterToTrim = #str
-    while lastLetterToTrim >= 1 do
-        if str:sub(lastLetterToTrim, lastLetterToTrim) ~= toTrim then
-            break
-        else
-            lastLetterToTrim = lastLetterToTrim - 1
-        end
-    end
-    return str:sub(1, lastLetterToTrim)
-end
-
-function string.startsWith(str, prefix) return string.sub(str, 1, #prefix) == prefix end
-
----@param delim string
----@param ... string
-function string.join(delim, ...) return table.concat(table.pack(...), delim) end
-
-function string.split(str, delim, maxResultCountOrNil)
-    assert(#delim == 1, "only delim len 1 supported for now")
-    maxResultCountOrNil = (maxResultCountOrNil or 0) - 1
-    local rv = {}
-    local buf = ""
-    for i = 1, #str do
-        local c = string.sub(str, i, i)
-        if #rv ~= maxResultCountOrNil and c == delim then
-            table.insert(rv, buf)
-            buf = ""
-        else
-            buf = buf .. c
-        end
-    end
-    table.insert(rv, buf)
-    return rv
-end
-
-function string.replace(str, search, replacement)
-    local rv = ""
-    local consumedLen = 1
-    local i = 1
-    while i < #str do
-        if string.sub(str, i, i + #search - 1) == search then
-            rv = rv .. string.sub(str, consumedLen, i - 1) .. replacement
-            i = i + #search
-            consumedLen = i
-        end
-        i = i + 1
-    end
-    return rv .. string.sub(str, consumedLen)
-end
-
-function string.normalizeLineEndings(str)
-    return string.replace(string.replace(str, "\r", "\n"), "\r\n", "\n")
-end
-
--- fill extension table (which is separate to _ENV.string)
-do
-    local base = string
-    local ext = _EXT.string
-    ext.endsWith = base.endsWith
-    ext.trimRight = base.trimRight
-    ext.startsWith = base.startsWith
-    ext.join = base.join
-    ext.split = base.split
-    ext.replace = base.replace
-    ext.normalizeLineEndings = base.normalizeLineEndings
-end
--- all string setup done
-
-
-
-
-
 -- Bootstrap the file system and initialize "require"
-print("setting up string helpers ...")
+print("setting up require and loaddriver ...")
 
 ---@diagnostic disable-next-line: missing-fields
 _ENV.package = {}
@@ -113,7 +34,14 @@ function loadfile(path)
     return assert(load(c, path, "t", _ENV))
 end
 
-function dofile(path, ...) return loadfile(path)(...) end
+function dofile(path, ...)
+    return loadfile(path)(...)
+end
+
+
+print("setting up string helpers ...")
+dofile("/sys/stringhelpers.lua")
+
 
 -- require should be a user thing, the kernel should not use that
 function require(moduleName, privileged)
@@ -139,6 +67,46 @@ function require(moduleName, privileged)
 end
 fs:init(bootDrive)
 -- filesystem and require done
+
+
+-- component wrapping helpers
+local wrappingComponentKey = {}
+local metaPrototypes = {}
+local noProtoMeta = {
+        __metatable = false,
+        __pairs = false,
+        __ipairs = false,
+        __newindex = function (t, k, v)
+            error("setting properties for components is not allowed")
+        end
+    }
+
+function wrapComponentWithPrototype(comp, prototype)
+    local meta
+    if prototype == nil then
+        meta = noProtoMeta
+    elseif metaPrototypes[prototype] ~= nil then
+        meta = metaPrototypes[prototype]
+    else 
+        meta = {
+            __metatable = false,
+            __pairs = false,
+            __ipairs = false,
+            __index = prototype,
+            __newindex = function (t, k, v)
+                error("setting properties for components is not allowed")
+            end
+        }
+        metaPrototypes[prototype] = meta
+    end
+    return setmetatable({[wrappingComponentKey] = comp}, meta)
+end
+
+function unwrapComponent(wrapped)
+    return rawget(wrapped, wrappingComponentKey)
+end
+
+
 
 
 
@@ -273,7 +241,7 @@ print("Loading kernel...")
 local kernel = require("kernel")
 
 -- init shell
---kernel:startProcessFromPath("/bin/lua.lua")
+-- kernel:startProcessFromPath("/bin/lua.lua")
 kernel:startProcessFromPath("/bin/sh.lua")
 
 print("Starting kernel...")

@@ -1,3 +1,4 @@
+---@diagnostic disable: duplicate-doc-field, duplicate-set-field
 local kernel = {}
 
 local computer = components:getFirst("computer")
