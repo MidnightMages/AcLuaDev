@@ -93,9 +93,14 @@ function fs:directoryExists(filePath)
     return drive:directoryExists(drivePath)
 end
 
-function fs:createDirectory(filePath)
+function fs:deleteDirectory(filePath)
     local drive, drivePath = findDriveAndDrivePath(filePath)
-    drive:makeDirectory(drivePath)
+    drive:deleteDirectory(drivePath)
+end
+
+function fs:delete(filePath)
+    local drive, drivePath = findDriveAndDrivePath(filePath)
+    drive:delete(drivePath)
 end
 
 function fs:list(filePath)
