@@ -5,8 +5,6 @@ import acluadev.LuaVirtualMachine;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
 import java.awt.event.KeyEvent;
-import java.util.Arrays;
-import java.util.stream.Stream;
 
 public class ScreenBlockEntity {
     private Console console;
@@ -22,6 +20,7 @@ public class ScreenBlockEntity {
         console.onKeyPressed = this::addKeyPressed;
         console.onKeyReleased = this::addKeyReleased;
         console.onKeyTyped = this::addKeyTyped;
+        console.onTextPasted = this::addTextPasted;
     }
 
     public void clear() {
@@ -42,5 +41,9 @@ public class ScreenBlockEntity {
 
     public void addKeyTyped(KeyEvent keyEvent) {
         vm.triggerMachineEvent ("keyTyped", LuaObject.of(Character.toString(keyEvent.getKeyChar())));
+    }
+
+    public void addTextPasted(String p) {
+        vm.triggerMachineEvent("textPasted", LuaObject.of(p));
     }
 }
