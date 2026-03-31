@@ -67,8 +67,8 @@ if computer.nvram ~= nil then
 else
     print("nvram is unavailable")
 end
-bootOptionsSleepTime = bootOptionsSleepTime ~= nil and bootOptionsSleepTime or SLEEP_TIME
-stackTraceOnCrash = stackTraceOnCrash ~= nil and stackTraceOnCrash or true
+bootOptionsSleepTime = bootOptionsSleepTime or SLEEP_TIME
+stackTraceOnCrash = not not stackTraceOnCrash
 
 
 -- init boot function
@@ -152,7 +152,6 @@ if #bootables < 1 then
 elseif #bootables == 1 then
     local bootTarget = bootables[defaultBoot]
     print("booting from medium-" .. defaultBoot .. "-" .. bootTarget.storageFamilyName .. " ...")
-    sleep(bootOptionsSleepTime)
     bootFromMedium(bootTarget)
 else
     print("\nboot options (default is top)")
