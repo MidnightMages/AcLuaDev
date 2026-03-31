@@ -1,5 +1,7 @@
 package acluadev.fs;
 
+import acluadev.Main;
+
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
@@ -40,7 +42,35 @@ public class DirectoryNode {
 
     public boolean tryDeleteFile(String s) {
         var splitted = s.split("/", 2);
-        return splitted.length == 1 ? files.remove(splitted[0]) != null : childDirs.get(splitted[0]).tryDeleteFile(splitted[1]);
+        if (splitted.length != 1) {
+            return childDirs.get(splitted[0]).tryDeleteFile(splitted[1]);
+        }
+        var f = files.remove(splitted[0]);
+        if (f != null) {
+            f.deleteIfFsNotReadonly();
+        }
+        return f != null;
+    }
+
+    public void deleteChildFoldersAndSelf() {
+        if (!isPhysReadOnly)
+            for (var f : files.values())
+                f.deleteIfFsNotReadonly();
+        files.clear();
+
+        if (!isPhysReadOnly)
+            for (var d : childDirs.values())
+                d.deleteChildFoldersAndSelf();
+        childDirs.clear();
+
+        if (!isPhysReadOnly && this.parentFolder != null) { // do not delete the physical root folder
+            try {
+                Main.SuppressAutoReload();
+                Files.delete(getRealDiskPath());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public DirectoryNode getDirectory(String s) {
