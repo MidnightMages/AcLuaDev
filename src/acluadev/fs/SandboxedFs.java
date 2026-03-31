@@ -1,7 +1,14 @@
 package acluadev.fs;
 
+import dev.asdf00.jluavm.exceptions.LuaJavaError;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 public class SandboxedFs {
     private final DirectoryNode root;
@@ -56,5 +63,14 @@ public class SandboxedFs {
 
     public boolean tryDeleteFile(String s) {
         return root.tryDeleteFile(trimPath(s));
+    }
+
+    public boolean tryDeleteDirectoryRecursively(String s) {
+        var d = root.getDirectory(trimPath(s));
+        if (d != null) {
+            d.deleteChildFoldersAndSelf();
+            return true;
+        }
+        return false;
     }
 }

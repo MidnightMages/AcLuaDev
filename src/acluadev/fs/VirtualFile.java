@@ -47,6 +47,17 @@ public class VirtualFile {
         }
     }
 
+    public void deleteIfFsNotReadonly() {
+        if (!parentFolder.isPhysReadOnly) {
+            try {
+                Main.SuppressAutoReload();
+                Files.deleteIfExists(getRealDiskPath());
+            } catch (IOException e) {
+                throw new RuntimeException("failed to delete file on host filesystem: %s".formatted(getRealDiskPath()), e);
+            }
+        }
+    }
+
     public void writeAllText(String s) {
         content = s;
         writeContentsToDisk();
