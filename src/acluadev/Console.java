@@ -8,8 +8,12 @@ import javax.swing.border.LineBorder;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import java.awt.*;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Objects;
@@ -17,11 +21,12 @@ import java.util.function.Consumer;
 
 import static javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS;
 
-public class Console implements KeyListener {
+public class Console implements KeyListener, MouseListener {
     public final JTextPane textPane;
     public Consumer<KeyEvent> onKeyTyped = null;
     public Consumer<KeyEvent> onKeyPressed = null;
     public Consumer<KeyEvent> onKeyReleased = null;
+    public Consumer<String> onTextPasted = null;
 
     private Console(JTextPane textPane) {
         this.textPane = textPane;
@@ -76,6 +81,7 @@ public class Console implements KeyListener {
         var console = new Console(textPane);
         f.addKeyListener(console);
         textPane.addKeyListener(console);
+        textPane.addMouseListener(console);
 
         return console;
     }
@@ -168,5 +174,36 @@ public class Console implements KeyListener {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        if (e.getButton() == MouseEvent.BUTTON2 && onTextPasted != null) {
+            try {
+                this.onTextPasted.accept(((String) Toolkit.getDefaultToolkit().getSystemClipboard().getData(DataFlavor.stringFlavor)));
+            } catch (UnsupportedFlavorException | IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+
     }
 }
