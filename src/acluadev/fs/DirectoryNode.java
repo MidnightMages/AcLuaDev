@@ -63,7 +63,7 @@ public class DirectoryNode {
                 d.deleteChildFoldersAndSelf();
         childDirs.clear();
 
-        if (!isPhysReadOnly) {
+        if (!isPhysReadOnly && this.parentFolder != null) { // do not delete the physical root folder
             try {
                 Main.SuppressAutoReload();
                 Files.delete(getRealDiskPath());
