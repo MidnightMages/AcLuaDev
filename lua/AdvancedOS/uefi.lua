@@ -74,7 +74,9 @@ stackTraceOnCrash = not not stackTraceOnCrash
 -- init boot function
 local function bootFromMedium(medium)
     _ENV.bootDrive = medium -- set boot drive
-    local code = medium:open("boot.lua"):read()
+    local bootHandle = medium:open("boot.lua")
+    local code = bootHandle:read(-1)
+    bootHandle:close()
     print("loading boot.lua ...")
     local bootFunc, errMsg = load(code, "boot.lua")
     if not bootFunc then

@@ -23,10 +23,12 @@ local bootDrive = _ENV.bootDrive
 assert(bootDrive, "BOOTLOADER: undefined boot drive")
 
 -- init filesystem
+local fsHandle = bootDrive:open("/sys/filesystem.lua")
 package.loaded.filesystem = assert(
-    load(bootDrive:open("/sys/filesystem.lua"):read(),
+    load(fsHandle:read(-1),
         "/sys/filesystem.lua")(),
     "failed to initialize filesystem")
+fsHandle:close()
 local fs = package.loaded.filesystem -- corresponds to fs = require("filesystem")
 
 function loadfile(path)
