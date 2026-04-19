@@ -15,13 +15,17 @@ local syscalls = {}
 
 local prototype = {
     componentType = "redstone",
-    getInput = function(self, direction)
-        return coroutine.yield("syscall", DRIVER_NAME, "getInput", self, direction)
-    end,
-    setOutput = function(self, direction, level)
-        return coroutine.yield("syscall", DRIVER_NAME, "setOutput", self, direction, level)
-    end,
 }
+
+function prototype:getInput(direction)
+    return coroutine.yield("syscall", DRIVER_NAME, "getInput", self, direction)
+end
+
+function prototype:setOutput(direction, level)
+    return coroutine.yield("syscall", DRIVER_NAME, "setOutput", self, direction, level)
+end
+
+
 
 function syscalls.getComponents()
     assertPermission(PERMISSION)

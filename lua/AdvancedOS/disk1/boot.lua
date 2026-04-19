@@ -138,6 +138,61 @@ end
 
 
 print("setting up proccess handling ...")
+local PROCESS <const> = {
+    curId = 0
+}
+
+function PROCESS.new()
+    local id = PROCESS.curId
+    PROCESS.curId = id + 1
+    return setmetatable({
+        id = id,
+        pausedUntil = -1,
+        handlers = {},
+        mainThread = nil,
+        curThread = nil,
+        blockedThreads = {},
+    }, {
+        __index = PROCESS
+    })
+end
+
+
+
+--[[
+user YIELD engineering thoughts:
+ - could be a syscall
+ - could return to outer coroutine
+ - could wait for time / hwevent / other process unblock (basically thread.join for processes or wait/notifyAll)
+ - MUST check if it may actually yield (not possible if user code is run in kernel/driver context (e.g. unblock or other predicate))
+]]
+
+--[[
+user RESUME engineering thoughts:
+ - is actually a true yield with return to thread loop blocking THIS tread and unblocking resuming thread
+ - MUST check if possible (i.e. outside of kernel/driver)
+]]
+
+--[[
+scheduler:
+ - version 0.1 will be a simple round robin event first proc scheduler
+ - event queue which distributes events to all subscribed processes
+]]
+
+--[[
+primitives:
+ - require
+ - stdio
+ - process communication (pipes, in, out)
+]]
+
+--[[
+users:
+ - permissions per user
+ - processes per user
+ - init process for user (i.e. one shell that kills the user if closed)
+ - /etc/passwd
+]]
 
 
 
