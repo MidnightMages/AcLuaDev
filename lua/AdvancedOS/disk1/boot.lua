@@ -11,6 +11,10 @@ Expected setup from UEFI:
 ]]
 
 
+-- kernel utils table
+kutils = {}
+
+
 -- Bootstrap the file system and initialize "require"
 print("setting up require and loaddriver ...")
 
@@ -45,6 +49,8 @@ print("setting up string helpers ...")
 dofile("/sys/stringhelpers.lua")
 
 
+
+
 -- require should be a user thing, the kernel should not use that
 function require(moduleName, privileged)
     assert(moduleName and #moduleName > 0, "module name must be a nonempty string")
@@ -71,19 +77,20 @@ fs:init(bootDrive)
 -- filesystem and require done
 
 
+print("initializing kernel utils ...")
 -- component wrapping helpers
 local wrappingComponentKey = {}
 local metaPrototypes = {}
 local noProtoMeta = {
-        __metatable = false,
-        __pairs = false,
-        __ipairs = false,
-        __newindex = function (t, k, v)
-            error("setting properties for components is not allowed")
-        end
-    }
+    __metatable = false,
+    __pairs = false,
+    __ipairs = false,
+    __newindex = function (t, k, v)
+        error("setting properties for components is not allowed")
+    end
+}
 
-function wrapComponentWithPrototype(comp, prototype)
+function kutils.wrapComponent(comp, prototype)
     local meta
     if prototype == nil then
         meta = noProtoMeta
@@ -104,9 +111,47 @@ function wrapComponentWithPrototype(comp, prototype)
     return setmetatable({[wrappingComponentKey] = comp}, meta)
 end
 
-function unwrapComponent(wrapped)
-    return rawget(wrapped, wrappingComponentKey)
+function kutils.unwrapComponent(wrapped, reqType)
+    local comp = rawget(wrapped, wrappingComponentKey)
+    if reqType ~= nil and comp.componentType ~= reqType then
+        error("incorrect driver selected for component")
+    end
+    return comp
 end
+
+function kutils.registerPermission(name)
+    -- TODO
+end
+
+function kutils.assertPermission(name)
+    -- TODO
+end
+
+function kutils.assertType(obj, tname)
+    if type(obj) ~= tname then
+        error("type error: expected "..tname..", got "..type(obj))
+    end
+    return obj
+end
+
+
+
+
+print("setting up proccess handling ...")
+
+
+
+
+
+print("setting up kernel infrastructure ...")
+local syscalls = {}
+function panic(msg)
+    -- TODO
+end
+function doSyscall()
+    -- TODO
+end
+
 
 
 
