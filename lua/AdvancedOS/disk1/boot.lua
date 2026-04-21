@@ -26,14 +26,26 @@ package.loaded = {}
 local bootDrive = _ENV.bootDrive
 assert(bootDrive, "BOOTLOADER: undefined boot drive")
 
--- init filesystem
-local fsHandle = bootDrive:open("/sys/filesystem.lua")
-package.loaded.filesystem = assert(
-    load(fsHandle:read(-1),
-        "/sys/filesystem.lua")(),
-    "failed to initialize filesystem")
-fsHandle:close()
-local fs = package.loaded.filesystem -- corresponds to fs = require("filesystem")
+-- init modules before we have a filesystem set up
+local fs = nil
+do
+    local function primitiveFileReadAndLoad(path)
+        local handle = bootDrive:open(path)
+        local func = assert(load(handle:read(-1),path), "failed to initialize primitive "..tostring(path))
+        handle:close()
+        return func
+    end
+
+    local function primitiveModuleLoad(moduleName, path)
+        package.loaded[moduleName] = assert(primitiveFileReadAndLoad(path)(), "failed to initialize primitive module"..tostring(path))
+        print("primitive module "..tostring(moduleName).." is loaded")
+        return package.loaded[moduleName] -- corresponds to require("MODULE")
+    end
+    print("setting up primitive modules ...")
+    primitiveFileReadAndLoad("/sys/stringhelpers.lua")()
+    fs = primitiveModuleLoad("filesystem", "/sys/drivers/filesystem.lua") -- corresponds to fs = require("filesystem")    
+end
+
 
 function loadfile(path)
     local c = fs:readAllText(path)
@@ -43,12 +55,6 @@ end
 function dofile(path, ...)
     return loadfile(path)(...)
 end
-
-
-print("setting up string helpers ...")
-dofile("/sys/stringhelpers.lua")
-
-
 
 
 -- require should be a user thing, the kernel should not use that
