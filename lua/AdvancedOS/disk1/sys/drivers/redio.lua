@@ -4,8 +4,8 @@ Simple syscall setup for redstone interface component
 
 
 local assertPermission = kutils.assertPermission
-local wrapComponent = kutils.wrapComponent
-local unwrapComponent = kutils.unwrapComponent
+local wrapComponent = kutils.wrapObject
+local unwrapComponent = kutils.unwrapObject
 
 local DRIVER_NAME <const> = "redio"
 local PERMISSION <const> = "drv.redstone"

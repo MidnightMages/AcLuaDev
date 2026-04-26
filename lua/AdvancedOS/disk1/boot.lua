@@ -14,6 +14,16 @@ Expected setup from UEFI:
 -- kernel utils table
 kutils = {}
 
+replaced = {}
+
+local function replaceGlobalFunc(toReplace, newFunc)
+    if type(toReplace) ~= "string" or replaced[toReplace] ~= nil then
+        error("global function replacement: cannot replace "..tostring(toReplace))
+    end
+    replaced[toReplace] = _ENV[toReplace]
+    _ENV[toReplace] = newFunc
+end
+
 
 -- Bootstrap the file system and initialize "require"
 print("setting up require and loaddriver ...")
@@ -85,28 +95,102 @@ fs:init(bootDrive)
 
 print("initializing kernel utils ...")
 -- component wrapping helpers
-local wrappingComponentKey = {}
+local WRAPPING_OBJ_KEY = {}
+replaceGlobalFunc("next", function(tbl, key)
+    local k, v = replaced.next(tbl, key)
+    if k == WRAPPING_OBJ_KEY then
+        return ne(tbl, key)
+    else
+        return k, v
+    end
+end)
+replaceGlobalFunc("pairs", function (tbl)
+    local nxt, t, k = replaced.pairs(tbl)
+    return nxt == replaced.next and next or nxt, t, k
+end)
+
+local createNextWithAllowedOnWrapped
+do
+    local function getNextFromWrappedWithAllowed(allowed, tbl, key)
+        local target = rawget(tbl, WRAPPING_OBJ_KEY)
+        local k, v = next(target, key)
+        if k == nil or allowed[k] and tbl[k] == nil then
+            return k, v
+        else
+            return getNextFromWrappedWithAllowed(allowed, tbl, key)
+        end
+    end
+
+    createNextWithAllowedOnWrapped = function (allowed)
+        return function (tbl, key)
+            local wrapped = rawget(tbl, WRAPPING_OBJ_KEY)
+            if not wrapped then
+                error("this 'next' function is not applicable to the given table")
+            end
+            local k, v = next(tbl, key)
+            if k == nil then
+                -- fall back to wrapped table
+                local prevK = nil
+                if tbl[key] == nil then
+                    -- we were already in the wrapped table
+                    prevK = key
+                end
+                return getNextFromWrappedWithAllowed(allowed, tbl, prevK)
+            end
+        end
+    end
+end
+
+function kutils.wrapObjectWithAccess(obj, allowedReads, allowedWrites)
+    if allowedReads == nil then
+        allowedReads = {}
+    end
+    if allowedWrites == nil then
+        allowedWrites = {}
+    end
+    local customNext = createNextWithAllowedOnWrapped(allowedReads)
+    return setmetatable({
+        [WRAPPING_OBJ_KEY] = obj
+    }, {
+        __pairs = function (t)
+            return customNext, t, nil
+        end,
+        __index = function (t, k)
+            return allowedReads[t] and obj[t] or nil
+        end,
+        __newindex = function (t, k, v)
+            if allowedReads[k] then
+                if allowedWrites[k] then
+                    obj[k] = v
+                else
+                    error("the property '"..tostring(k).."' is readonly")
+                end
+            else
+                rawset(t, k, v)
+            end
+        end
+    })
+end
+
 local metaPrototypes = {}
 local noProtoMeta = {
     __metatable = false,
     __pairs = false,
-    __ipairs = false,
     __newindex = function (t, k, v)
         error("setting properties for components is not allowed")
     end
 }
 
-function kutils.wrapComponent(comp, prototype)
+function kutils.wrapObject(obj, prototype)
     local meta
     if prototype == nil then
         meta = noProtoMeta
     elseif metaPrototypes[prototype] ~= nil then
         meta = metaPrototypes[prototype]
-    else 
+    else
         meta = {
             __metatable = false,
             __pairs = false,
-            __ipairs = false,
             __index = prototype,
             __newindex = function (t, k, v)
                 error("setting properties for components is not allowed")
@@ -114,15 +198,15 @@ function kutils.wrapComponent(comp, prototype)
         }
         metaPrototypes[prototype] = meta
     end
-    return setmetatable({[wrappingComponentKey] = comp}, meta)
+    return setmetatable({[WRAPPING_OBJ_KEY] = obj}, meta)
 end
 
-function kutils.unwrapComponent(wrapped, reqType)
-    local comp = rawget(wrapped, wrappingComponentKey)
-    if reqType ~= nil and comp.componentType ~= reqType then
+function kutils.unwrapObject(wrapped, reqType)
+    local obj = rawget(wrapped, WRAPPING_OBJ_KEY)
+    if reqType ~= nil and obj.componentType ~= reqType then
         error("incorrect driver selected for component")
     end
-    return comp
+    return obj
 end
 
 function kutils.registerPermission(name)
@@ -144,24 +228,7 @@ end
 
 
 print("setting up proccess handling ...")
-local PROCESS <const> = {
-    curId = 0
-}
 
-function PROCESS.new()
-    local id = PROCESS.curId
-    PROCESS.curId = id + 1
-    return setmetatable({
-        id = id,
-        pausedUntil = -1,
-        handlers = {},
-        mainThread = nil,
-        curThread = nil,
-        blockedThreads = {},
-    }, {
-        __index = PROCESS
-    })
-end
 
 
 
