@@ -99,7 +99,7 @@ local WRAPPING_OBJ_KEY = {}
 replaceGlobalFunc("next", function(tbl, key)
     local k, v = replaced.next(tbl, key)
     if k == WRAPPING_OBJ_KEY then
-        return ne(tbl, key)
+        return next(tbl, key)
     else
         return k, v
     end
