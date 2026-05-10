@@ -35,6 +35,8 @@ function PROCESS.new(desc, path, ...)
         id = id,
         pausedUntil = -1,
         -- private
+        state = "runnable",
+        resumptionArgs = {},
         handlers = {},
         mainThread = nil,
         curThread = nil,
