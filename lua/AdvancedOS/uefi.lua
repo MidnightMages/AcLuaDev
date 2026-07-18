@@ -48,11 +48,11 @@ while""do
                 w("\n")
                 local f, err = load(line)
                 if not f then
-                    p("Error: "..err)
+                    p("Error: ",err)
                 else
-                    local ok, res = xpcall(f, debug.traceback)
-                    if not ok then
-                        p("Error: ",tostring(res))
+                    f, err = xpcall(f, debug.traceback)
+                    if not f then
+                        p("Error: ",err)
                     end
                 end
                 w(">>> ")
