@@ -13,34 +13,60 @@ kutils.registerPermission(PERMISSION)
 
 
 local PROCESS <const> = {
-    curId = 0
+    curId = -1
 }
 
 local ALLOWED_READS = {
-    description = true,
-    path = true,
-    args = true,
     id = true,
-    pausedUntil = true,
+    description = true,
+    currentWorkingDirectory = true,
+    args = true,
 }
 
+---@class OsThread
+---@field id integer
+---@field pausedUntil integer
+---@field queuedEvents any[][]
+---@field waitingForCoroutineYield thread
+----@field waitingForProcessIdToExit integer
+
+---@class Process
+---@field id integer
+---@field description string
+---@field currentWorkingDirectory string
+---@field args any[]
+----@field pausedUntil integer --> handled by scheduler
+
+---@class ProcessWithPrivateFields : Process
+---@field unblockedThreads OsThread[]
+---@field blockedThreads OsThread[]
+----@field state PROCESS_RUNSTATE  --> handled by scheduler maybe
+----@field blockingProcesses ProcessWithPrivateFields[] --> handled by scheduler
+
+---@enum PROCESS_RUNSTATE
+local PROCESS_RUNSTATE = {
+    unstarted = 0,
+    runnable = 1,
+    running = 2,
+}
+
+---@return ProcessWithPrivateFields
 function PROCESS.new(desc, path, ...)
-    local id = PROCESS.curId
-    PROCESS.curId = id + 1
+    PROCESS.curId = PROCESS.curId + 1
     return setmetatable({
         -- public
         description = desc,
         path = path,
         args = table.pack(...),
-        id = id,
+        id = PROCESS.curId,
         pausedUntil = -1,
         -- private
-        state = "runnable",
-        resumptionArgs = {},
+        state =  PROCESS_RUNSTATE.unstarted,
+        --resumptionArgs = {},
         handlers = {},
         mainThread = nil,
-        curThread = nil,
-        blockedThreads = {},
+        unblockedThreads = {}, -- all os-threads that are currently resumable
+        blockedThreads = {}, -- all os-threads that are currently not resumable
         blockingProcesses = {}, -- processes blocked by this process
     }, {
         __index = PROCESS

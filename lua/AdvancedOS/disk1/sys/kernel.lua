@@ -2,22 +2,55 @@
 This is the base execution loop for the scheduler
 ]]
 
+---@type ProcessWithPrivateFields[]
 local queue = {}
-scheduler = {}
+scheduler = {
+    ---@type table<string, table<ProcessWithPrivateFields, function[]>>
+    registeredEventCallbacksByTypeAndProcess = {}
+}
 
-function scheduler.enqueue(proc)
+function scheduler:enqueue(proc)
     
 end
 
-function scheduler.block(blocked, blocking)
+function scheduler:block(blocked, blocking)
     
 end
 
+function scheduler:registerEventCallback(eventName, callbackFunc)
+    
+end
 
+---comment
+---@param process ProcessWithPrivateFields
+---@param func function
+---@param ... any
+function scheduler:spawnNewThreadInProcess(process, func, ...) -- ... = thread start args
+    table.insert(process.unblockedThreads,)
+end
 
+print("new kernel running!!!!!!")
 
+local computer = components:getFirst("computer")
 while true do
-    local proc = table.remove(queue, 1)
+    -- process events
+    while true do
+        local machineEvent = {computer:getMachineEvent()}
+        if #machineEvent == 0 then break end -- no event available
+        for _, process in ipairs(queue) do -- walk through all registered handlers and spawn new threads
+            for i = 1, 2 do
+                local handlers = (scheduler.registeredEventCallbacksByTypeAndProcess[i == 1 and "*" or machineEvent[1]] or {})[process] or {}
+                for j = 1, #handlers do
+                    scheduler:spawnNewThreadInProcess(process,handlers[j],table.unpack(machineEvent))
+                end
+            end
+        end
+        -- resume all eventhandlers
+    end
+
+    ---@type ProcessWithPrivateFields
+    local processToResume = table.remove(queue, 1)
+    
     local result = table.pack(proc.curThread.resume())
     if not result[1] then
         -- this coroutine resulted in an error

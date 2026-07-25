@@ -413,7 +413,7 @@ end
 -- init
 
 print("Loading kernel...")
-local kernel = require("kernel")
+local kernel = dofile("/sys/kernel.lua")
 
 -- init shell
 -- kernel:startProcessFromPath("/bin/lua.lua")
