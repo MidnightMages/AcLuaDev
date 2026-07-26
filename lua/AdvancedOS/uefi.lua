@@ -67,6 +67,9 @@ if computer.nvram ~= nil then
 else
     print("nvram is unavailable")
 end
+
+stackTraceOnCrash = true
+
 bootOptionsSleepTime = bootOptionsSleepTime or SLEEP_TIME
 stackTraceOnCrash = not not stackTraceOnCrash
 
