@@ -209,14 +209,6 @@ function kutils.unwrapObject(wrapped, reqType)
     return obj
 end
 
-function kutils.registerPermission(name)
-    -- TODO
-end
-
-function kutils.assertPermission(name)
-    -- TODO
-end
-
 function kutils.assertType(obj, tname)
     if type(obj) ~= tname then
         error("type error: expected "..tname..", got "..type(obj))
@@ -272,14 +264,6 @@ users:
 
 
 print("setting up kernel infrastructure ...")
-local syscalls = {}
-function panic(msg)
-    -- TODO
-end
-function doSyscall()
-    -- TODO
-end
-
 
 
 
@@ -412,14 +396,9 @@ end
 
 -- init
 
-print("Loading kernel...")
-local kernel = dofile("/sys/kernel.lua")
-
--- init shell
--- kernel:startProcessFromPath("/bin/lua.lua")
-kernel:startProcessFromPath("/bin/sh.lua")
-
 print("Starting kernel...")
-kernel:run()
+dofile("/sys/kernel.lua")
+print("kernel has exited")
+
 
 -- run autorun.lua files

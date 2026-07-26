@@ -6,6 +6,7 @@
 local assertPermission = kutils.assertPermission
 local wrap = kutils.wrapObjectWithAccess
 local unwrap = kutils.unwrapObject
+local scheduler = scheduler
 
 local DRIVER_NAME <const> = "process"
 local PERMISSION <const> = "drv.process"
@@ -27,21 +28,27 @@ local ALLOWED_READS = {
 ---@field id integer
 ---@field pausedUntil integer
 ---@field queuedEvents any[][]
----@field waitingForCoroutineYield thread
-----@field waitingForProcessIdToExit integer
+---@field coroutine thread
 
----@class Process
----@field id integer
+
+---@class ProcessStartInfo
 ---@field description string
 ---@field currentWorkingDirectory string
 ---@field args any[]
-----@field pausedUntil integer --> handled by scheduler
+
+---@class FullProcessStartInfo : ProcessStartInfo
+---@field mainFunc function
+---@field args any[]
+
+
+
+---@class Process : ProcessStartInfo
+---@field id integer
 
 ---@class ProcessWithPrivateFields : Process
 ---@field unblockedThreads OsThread[]
 ---@field blockedThreads OsThread[]
-----@field state PROCESS_RUNSTATE  --> handled by scheduler maybe
-----@field blockingProcesses ProcessWithPrivateFields[] --> handled by scheduler
+---@field createThread function
 
 ---@enum PROCESS_RUNSTATE
 local PROCESS_RUNSTATE = {
@@ -50,48 +57,49 @@ local PROCESS_RUNSTATE = {
     running = 2,
 }
 
+---@param processStartInfo FullProcessStartInfo
 ---@return ProcessWithPrivateFields
-function PROCESS.new(desc, path, ...)
+function PROCESS.new(processStartInfo)
     PROCESS.curId = PROCESS.curId + 1
-    return setmetatable({
+
+    assert(getmetatable(processStartInfo) == nil, "processStartInfo cannot have a metatable attached")
+    local desc = processStartInfo.description
+    local cwd = processStartInfo.currentWorkingDirectory
+    local args = {table.unpack(processStartInfo.args)}
+
+    local proc = setmetatable({
         -- public
         description = desc,
-        path = path,
-        args = table.pack(...),
+        currentWorkingDirectory = cwd,
+
         id = PROCESS.curId,
-        pausedUntil = -1,
         -- private
-        state =  PROCESS_RUNSTATE.unstarted,
-        --resumptionArgs = {},
-        handlers = {},
-        mainThread = nil,
         unblockedThreads = {}, -- all os-threads that are currently resumable
         blockedThreads = {}, -- all os-threads that are currently not resumable
-        blockingProcesses = {}, -- processes blocked by this process
     }, {
         __index = PROCESS
     })
+    proc:createThread(processStartInfo.mainFunc, args)
+    return proc
 end
 
+function PROCESS:createThread(funcToExecute, packedArgs)
+    table.insert(self.unblockedThreads, coroutine.create(function()
+        funcToExecute(table.unpack(packedArgs))
+    end))
+end
 
 local syscalls = {}
 
 
 -- syscalls
-function syscalls.spawn(mode, description, path, ...)
-    assertPermission(PERMISSION)
-    if type(mode) ~= "string" then
-        error("process spawning mode must be a string")
-    end
-    local proc = PROCESS.new(description, path, ...)
-    if mode == "blocked" then
-        scheduler.block(scheduler.curProcess(), proc)
-    elseif mode ~= "background" then
-        error("unsupported process spawning mode "..mode)
-    end
+
+
+---@param processStartInfo FullProcessStartInfo
+function syscalls.spawnProcess(processStartInfo)
+    local proc = PROCESS.new(processStartInfo)
     scheduler.enqueue(proc)
     return wrap(proc, ALLOWED_READS)
 end
-
 
 return syscalls
