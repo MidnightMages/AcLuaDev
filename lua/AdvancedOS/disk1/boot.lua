@@ -156,7 +156,11 @@ function kutils.wrapObjectWithAccess(obj, allowedReads, allowedWrites)
             return customNext, t, nil
         end,
         __index = function (t, k)
-            return allowedReads[t] and obj[t] or nil
+            if allowedReads[k] then
+                return obj[k]
+            else
+                error("Attempted to access unavailable key '"..tostring(k).."'!")
+            end
         end,
         __newindex = function (t, k, v)
             if allowedReads[k] then

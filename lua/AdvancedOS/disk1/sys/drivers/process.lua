@@ -22,6 +22,8 @@ local ALLOWED_READS = {
     description = true,
     currentWorkingDirectory = true,
     args = true,
+    state = true,
+    endedSuccessfully = true
 }
 
 ---@class OsThread
@@ -34,7 +36,6 @@ local ALLOWED_READS = {
 ---@class ProcessStartInfo
 ---@field description string
 ---@field currentWorkingDirectory string
----@field args any[]
 
 ---@class FullProcessStartInfo : ProcessStartInfo
 ---@field mainFunc function
@@ -44,6 +45,8 @@ local ALLOWED_READS = {
 
 ---@class Process : ProcessStartInfo
 ---@field id integer
+---@field state PROCESS_RUNSTATE
+---@field endedSuccessfully boolean
 
 ---@class ProcessWithPrivateFields : Process
 ---@field unblockedThreads OsThread[]
@@ -52,10 +55,11 @@ local ALLOWED_READS = {
 ---@field nextThreadId integer
 
 ---@enum PROCESS_RUNSTATE
-local PROCESS_RUNSTATE = {
+PROCESS_RUNSTATE = {
     unstarted = 0,
     runnable = 1,
     running = 2,
+    dead = 3
 }
 
 ---@param processStartInfo FullProcessStartInfo
@@ -78,6 +82,7 @@ function PROCESS.new(processStartInfo)
         unblockedThreads = {}, -- all os-threads that are currently resumable
         blockedThreads = {}, -- all os-threads that are currently not resumable
         nextThreadId = 0,
+        state = PROCESS_RUNSTATE.running
     }, {
         __index = PROCESS
     })
@@ -111,7 +116,10 @@ local syscalls = {}
 function syscalls.spawnProcess(processStartInfo) -- TODO chose isolation level and thus prototype-_ENV, i.e 0 = kernel, 1 = driver, 2 = user?
     local proc = PROCESS.new(processStartInfo)
     scheduler:enqueue(proc)
-    return wrap(proc, ALLOWED_READS)
+    print("created", proc.description)
+    local rv = wrap(proc, ALLOWED_READS)
+    print("created rv", rv.description)
+    return rv
 end
 
 return syscalls

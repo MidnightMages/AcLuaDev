@@ -45,7 +45,14 @@ function scheduler:block(blocked, blocking)
 end
 
 function scheduler:registerEventCallback(eventName, callbackFunc)
-    
+    if scheduler.registeredEventCallbacksByTypeAndProcess[eventName] == nil then
+        scheduler.registeredEventCallbacksByTypeAndProcess[eventName] = {}
+    end
+    assert(currentlyRunningProcess ~= nil, "No process is running currently!")
+    if scheduler.registeredEventCallbacksByTypeAndProcess[eventName][currentlyRunningProcess] == nil then
+        scheduler.registeredEventCallbacksByTypeAndProcess[eventName][currentlyRunningProcess] = {}
+    end
+    table.insert(scheduler.registeredEventCallbacksByTypeAndProcess[eventName][currentlyRunningProcess], callbackFunc)
 end
 
 ---@param process ProcessWithPrivateFields
@@ -110,6 +117,7 @@ local function runTasks()
                 for i = 1, 2 do
                     local handlers = (scheduler.registeredEventCallbacksByTypeAndProcess[i == 1 and "*" or machineEvent[1]] or {})[process] or {}
                     for j = 1, #handlers do
+                        --print("created event thread :)", table.unpack(machineEvent))
                         scheduler:spawnNewThreadInProcess(process,handlers[j],table.unpack(machineEvent))
                     end
                 end
@@ -121,29 +129,37 @@ local function runTasks()
     print("proc count: ", lastCnt, "-->", #runningProcesses)
             lastCnt = #runningProcesses
         end
+        local diedProcessIds = {}
         for i = 1, #runningProcesses do
             local processToRun = runningProcesses[i]
+            local function markCurrentProcessForErrorKilling()
+                processToRun.endedSuccessfully = false
+                table.insert(diedProcessIds, i)
+            end
             currentlyRunningProcess = processToRun
             local unblockedThreads = processToRun.unblockedThreads
             for  j = 1, #unblockedThreads do
                 local currThreadToRun = unblockedThreads[j]
                 if (currThreadToRun.pausedUntil or -1) < computer:getEpoch() then
-                    print("resuming")
+                    --print("resuming with args: ", currThreadToRun.coroutine_resumptionArgs)
                     local result = table.pack(coroutine.resume(currThreadToRun.coroutine, table.unpack(currThreadToRun.coroutine_resumptionArgs or {})))
-                    print("PACKED: ", table.unpack(result))
+                    if type(result[3]) == "string" and result[3] ~= "sleep" then
+                        print("PACKED: ", table.unpack(result))
+                    end
                     -- handle syscalls / result
                     if not result[1] then -- if error
                         -- TODO kill process
-                            error("we need to kill a process (proc errored) :(\nInitial error: "..tostring(result[2])..":"..tostring(result[3]))
+                            print("we need to kill a process (proc errored) :(\nInitial error: "..tostring(result[2])..":"..tostring(result[3]))
+                            markCurrentProcessForErrorKilling(); break
                     else -- success
                         if origCo.status(currThreadToRun.coroutine) == "dead" then
-                            print("a thread has ended. removing.")
+                            --print("a thread of '"..tostring(processToRun.description).."' has ended. removing.")
                             unblockedThreads[j] = nil
                         else
                             local action = result[2]
                             if action == "syscall" then
                                 local syscallName = result[3]
-                                print("syscall name", syscallName)
+                                --print("syscall name", syscallName)
                                 if syscallName == "sleep" then
                                     local sleepDuration = result[4]
                                     assert(type(sleepDuration) == "number")
@@ -153,25 +169,42 @@ local function runTasks()
                                     if syscallFunc then
                                         currThreadToRun.coroutine_resumptionArgs = table.pack(syscallFunc(table.unpack(result, 4)))
                                     else
-                                        error("we need to kill a process (bad syscall name) "..tostring(syscallName).." :(")
+                                        print("we need to kill a process (bad syscall name) "..tostring(syscallName).." :(")
+                                        markCurrentProcessForErrorKilling(); break
                                     end
                                 end
                             else
-                                error("we need to kill a process (bad action) "..tostring(action).." :(")
-                                -- TODO kill process
+                                print("we need to kill a process (bad action) "..tostring(action).." :(")
+                                markCurrentProcessForErrorKilling(); break
                             end
                         end
                     end
                 end
             end
 
-            for j = #unblockedThreads, 0, -1 do
+            local pre = #unblockedThreads
+            for j = #unblockedThreads, 1, -1 do
                 if unblockedThreads[j] == nil then
                     table.remove(unblockedThreads, j)
                 end
             end
+            if #unblockedThreads ~= pre then
+                print("unblocked thread cnt", pre, "-->", #unblockedThreads)
+            end
+            if #unblockedThreads == 0 then -- no more threads --> process is dead
+                table.insert(diedProcessIds, i)
+            end
             currentlyRunningProcess = nil
             sleep(0.05)
+        end
+
+        for j = #diedProcessIds, 1, -1  do
+            local diedPid_aka_i = diedProcessIds[j]
+            local procObj = runningProcesses[diedPid_aka_i]
+            procObj.endedSuccessfully = procObj.endedSuccessfully ~= false -- we have set this to false already if the process errored. So if it was not set, all was well
+            procObj.state = PROCESS_RUNSTATE.dead
+            print("marked process '"..tostring(procObj.description).."' as dead")
+            table.remove(runningProcesses, diedPid_aka_i)
         end
     end
 end
@@ -212,6 +245,10 @@ end]]
 
 syscalls["getCurrentProcess"] = function()
     return (currentlyRunningProcess)
+end
+
+syscalls["registerProcessEventCallback"] = function(eventName, callback)
+    scheduler:registerEventCallback(eventName, callback)
 end
 
 syscalls.spawnProcess(initProcessStartInfo)

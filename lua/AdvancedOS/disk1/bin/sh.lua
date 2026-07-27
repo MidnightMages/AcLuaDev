@@ -31,8 +31,9 @@ local function executeStatement(statement)
         local dstPath = "/bin/"..executablePath..".lua"
         if fs:fileExists(dstPath) then           
             local proc = kernel:startProcessFromPath(dstPath, argString)
-            local res = kernel:waitForProcessExit(proc)
-            kernel:debug("result:", res[1] == true and "success" or "error", select(2, table.unpack(res))) 
+            local wasSuccess = kernel:waitForProcessExit(proc)
+
+            kernel:debug("result:", wasSuccess and "success" or "error") 
         else
             print("ERROR: file '"..tostring(dstPath).."' does not exist")
         end
@@ -49,7 +50,6 @@ if fs:fileExists(rcFile) then
     local rcFileContents = fs:readAllText(rcFile)
     executeStatement(rcFileContents)
 end
-
 
 local captureInput = true
 local stringBuffer = ""

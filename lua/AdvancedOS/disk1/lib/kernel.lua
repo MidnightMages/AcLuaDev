@@ -5,13 +5,7 @@ local currProcess = nil
 ---@type scheduledThread?
 local currScheduledThread = nil
 function kernel:registerEventCallback(eventName, callback) -- TODO add unregister function
-    local container = eventHandlers[eventName]
-    if not container then
-        container = {}
-        eventHandlers[eventName] = container
-    end
-    assert(currProcess, "registerEvent curr proc is nil")
-    table.insert(container, {func=callback, process = currProcess})
+    self:invokeSyscall("registerProcessEventCallback", eventName, callback)
 end
 
 function kernel:invokeSyscall(syscallName, ...)
@@ -24,7 +18,7 @@ function kernel:debug(...)
     end
 end
 
----@return process
+---@return Process
 function kernel:getCurrentProcess()
     return self:invokeSyscall("getCurrentProcess")
 end
@@ -67,24 +61,25 @@ function kernel:startProcessFromPath(luaPath, ...)
     local startInfo = {
         mainFunc = assert(loadfile(luaPath)),
         args = table.pack(...),
-        currentWorkingDirectory = self:getCurrentProcess().cwd,
-        description = "some new process"
+        currentWorkingDirectory = self:getCurrentProcess().currentWorkingDirectory,
+        description = tostring(luaPath)
     }
     return self:invokeSyscall("spawnProcess", startInfo)
 end
 
----@param processHandle processHandle
+---@param processHandle Process
 function kernel:waitForProcessExit(processHandle)
-    while processHandle.state ~= "dead" do
-        --print("sleep begun")
+    --print("waiting for ",processHandle.description ," to finish")
+    while processHandle.state ~= PROCESS_RUNSTATE.dead do
+        --print("sleep begun", processHandle.state)
         sleep(0.1)
     end
-    return processHandle.result
+    return processHandle.endedSuccessfully
 end
 
 ---@returns string
 function kernel:getCurrentWorkingDirectory()
-    return kernel:getCurrentProcess().cwd
+    return kernel:getCurrentProcess().currentWorkingDirectory
 end
 
 ---@param s string
