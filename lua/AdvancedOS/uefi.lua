@@ -36,9 +36,13 @@ end
 local cursorX, cursorY = 0, 0 -- to be captured by new prints
 local function makePrint(target, append)
     local function doPrint(...) -- new printing to screen
+        local packed = table.pack(...)
+        for i = 1, #packed do
+            if packed[i] == nil then packed[i] = "nil" end
+        end
         cursorX, cursorY = globalStdOutBuffer:pasteText(
             cursorX, cursorY, "SCROLL_SPILL_CLEAR",
-            table.concat(table.pack(...), " ") .. append)
+            table.concat(packed, " ") .. append)
     end
     local oldPrint <const> = _ENV[target]
     if oldPrint ~= nil then -- possibly prepend console print

@@ -36,6 +36,7 @@ _ENV.scheduler = {
 }
 
 function scheduler:enqueue(proc)
+    assert(proc ~= nil, "proc was nil")
     table.insert(runningProcesses, proc)
 end
 
@@ -63,13 +64,39 @@ function doSyscall()
     -- TODO
 end
 
+local origCo = coroutine
+_ENV["coroutine"] = {}
 
+---@param f fun(...):...
+---@return thread
+---@diagnostic disable-next-line: duplicate-set-field
+function coroutine.create(f)
+    return origCo.create(function(...)
+        return xpcall(f, debug.traceback)
+    end)
+end
+
+---@param co thread
+---@return boolean success
+---@return ...
+---@diagnostic disable-next-line: duplicate-set-field
+function coroutine.resume(co, ...)
+    return select(2, origCo.resume(co, ...)) -- first is always true as the co cannot fail
+end
+
+---@diagnostic disable-next-line: duplicate-set-field
+function coroutine.yield(...)
+    return origCo.yield(true, ...)
+end
+
+local sleep = _ENV.sleep
 
 
 print("new kernel running!!!!!!")
-
+local lastCnt = -1
 local function runTasks()
     while true do
+        
         -- process events
         while true do
             local machineEvent = {computer:getMachineEvent()}
@@ -89,34 +116,58 @@ local function runTasks()
             end
             -- resume all eventhandlers
         end
-
+        
+        if lastCnt ~= #runningProcesses then
+    print("proc count: ", lastCnt, "-->", #runningProcesses)
+            lastCnt = #runningProcesses
+        end
         for i = 1, #runningProcesses do
             local processToRun = runningProcesses[i]
             currentlyRunningProcess = processToRun
             local unblockedThreads = processToRun.unblockedThreads
             for  j = 1, #unblockedThreads do
                 local currThreadToRun = unblockedThreads[j]
-                if (currThreadToRun.pausedUntil or -1) < computer.getEpoch() then
-                    local result = table.pack(coroutine.resume(currThreadToRun.coroutine))
-
+                if (currThreadToRun.pausedUntil or -1) < computer:getEpoch() then
+                    print("resuming")
+                    local result = table.pack(coroutine.resume(currThreadToRun.coroutine, table.unpack(currThreadToRun.coroutine_resumptionArgs or {})))
+                    print("PACKED: ", table.unpack(result))
                     -- handle syscalls / result
                     if not result[1] then -- if error
                         -- TODO kill process
-                            error("we need to kill a process (proc errored) :(")
+                            error("we need to kill a process (proc errored) :(\nInitial error: "..tostring(result[2])..":"..tostring(result[3]))
                     else -- success
-                        local action = result[2]
-                        if action == "syscall" then
-                            local syscallName = result[3]
-                            if syscallName == "sleep" then
-                                local sleepDuration = result[4]
-                                assert(type(sleepDuration) == "number")
-                                currThreadToRun.pausedUntil = computer.getEpoch() + tonumber(sleepDuration)
-                            end
+                        if origCo.status(currThreadToRun.coroutine) == "dead" then
+                            print("a thread has ended. removing.")
+                            unblockedThreads[j] = nil
                         else
-                            error("we need to kill a process (bad syscall) :(")
-                            -- TODO kill process
+                            local action = result[2]
+                            if action == "syscall" then
+                                local syscallName = result[3]
+                                print("syscall name", syscallName)
+                                if syscallName == "sleep" then
+                                    local sleepDuration = result[4]
+                                    assert(type(sleepDuration) == "number")
+                                    currThreadToRun.pausedUntil = computer:getEpoch() + tonumber(sleepDuration)
+                                else
+                                    local syscallFunc = syscalls[syscallName]
+                                    if syscallFunc then
+                                        currThreadToRun.coroutine_resumptionArgs = table.pack(syscallFunc(table.unpack(result, 4)))
+                                    else
+                                        error("we need to kill a process (bad syscall name) "..tostring(syscallName).." :(")
+                                    end
+                                end
+                            else
+                                error("we need to kill a process (bad action) "..tostring(action).." :(")
+                                -- TODO kill process
+                            end
                         end
                     end
+                end
+            end
+
+            for j = #unblockedThreads, 0, -1 do
+                if unblockedThreads[j] == nil then
+                    table.remove(unblockedThreads, j)
                 end
             end
             currentlyRunningProcess = nil
@@ -132,6 +183,39 @@ local initProcessStartInfo = {
     args = {},
     description = "init shell"
 }
+
+local function invokeSyscall(syscallName, ...)
+    coroutine.yield("syscall", syscallName, ...)
+end
+
+---@param duration number Duration in seconds
+_G["sleep"] = function(duration)
+    invokeSyscall("sleep", duration)
+end
+
+local kernelCoroutine = origCo.running()
+syscalls["sleep"] = function()
+end
+
+--[[
+local function readonlyView(x)    
+    return setmetatable({}, {
+        __index = function(_, k)
+            local rv = rawget(x, k) 
+            print("access: ", k, "-->", rv)
+            if type(rv) == "table" then return readonlyView(rv) end
+            return rv
+        end,
+        __metatable = false
+    })
+end]]
+
+syscalls["getCurrentProcess"] = function()
+    return (currentlyRunningProcess)
+end
+
 syscalls.spawnProcess(initProcessStartInfo)
+
+
 runTasks()
 print("shutting down ...")

@@ -1,5 +1,6 @@
 local kernel = require("kernel")
 local fs = require("filesystem")
+    print("a")
 local argString = kernel:getCurrentProcess().args
 local function printPrefix()
     local path = kernel:getCurrentWorkingDirectory()
@@ -13,8 +14,8 @@ end
 kernel:debug("Shell with PID", kernel:getCurrentProcess().pid, "was started")
 
 local function executeStatement(statement)
+    print("Shell is executing statement", statement)
     if statement == "exit" then return true end
-
     local splitted = string.split(statement, " ")
     local executablePath = splitted[1]
     local argString = table.concat(splitted, " ", 2)
@@ -38,7 +39,7 @@ local function executeStatement(statement)
     end
 end
 
-if argString ~= "" then
+if (argString or "") ~= "" then
     executeStatement(argString)
     return 0
 end

@@ -49,6 +49,7 @@ local ALLOWED_READS = {
 ---@field unblockedThreads OsThread[]
 ---@field blockedThreads OsThread[]
 ---@field createThread function
+---@field nextThreadId integer
 
 ---@enum PROCESS_RUNSTATE
 local PROCESS_RUNSTATE = {
@@ -76,6 +77,7 @@ function PROCESS.new(processStartInfo)
         -- private
         unblockedThreads = {}, -- all os-threads that are currently resumable
         blockedThreads = {}, -- all os-threads that are currently not resumable
+        nextThreadId = 0,
     }, {
         __index = PROCESS
     })
@@ -84,9 +86,19 @@ function PROCESS.new(processStartInfo)
 end
 
 function PROCESS:createThread(funcToExecute, packedArgs)
-    table.insert(self.unblockedThreads, coroutine.create(function()
+    local tid = self.nextThreadId
+    self.nextThreadId = tid+1
+
+    ---@type OsThread
+    local newThread = {
+        coroutine = coroutine.create(function()
         funcToExecute(table.unpack(packedArgs))
-    end))
+    end),
+        id = tid,
+        pausedUntil = -1,
+        queuedEvents = {}
+    }
+    table.insert(self.unblockedThreads, newThread)
 end
 
 local syscalls = {}
@@ -96,9 +108,9 @@ local syscalls = {}
 
 
 ---@param processStartInfo FullProcessStartInfo
-function syscalls.spawnProcess(processStartInfo)
+function syscalls.spawnProcess(processStartInfo) -- TODO chose isolation level and thus prototype-_ENV, i.e 0 = kernel, 1 = driver, 2 = user?
     local proc = PROCESS.new(processStartInfo)
-    scheduler.enqueue(proc)
+    scheduler:enqueue(proc)
     return wrap(proc, ALLOWED_READS)
 end
 
