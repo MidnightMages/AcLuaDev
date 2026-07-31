@@ -30,8 +30,13 @@ print("setting up require and loaddriver ...")
 
 ---@diagnostic disable-next-line: missing-fields
 _ENV.package = {}
-package.path = "/lib/?.lua"
+package.preload = {}
 package.loaded = {}
+
+package.config = "/\n:\n?\n!\n-"
+package.path ="/lib/?.lua:/lib/?/init.lua"
+-- package.path ="/lib/?.lua:/lib/?/init.lua:./?.lua:./?/init.lua" TODO fix local paths
+-- TODO make findDriveAndDrivePath work with paths starting with ./, by taking current_process.currentWorkingDirectory into account
 
 local bootDrive = _ENV.bootDrive
 assert(bootDrive, "BOOTLOADER: undefined boot drive")
@@ -53,7 +58,8 @@ do
     end
     print("setting up primitive modules ...")
     primitiveFileReadAndLoad("/sys/stringhelpers.lua")()
-    fs = primitiveModuleLoad("filesystem", "/sys/drivers/filesystem.lua") -- corresponds to fs = require("filesystem")    
+    fs = primitiveModuleLoad("filesystem", "/sys/drivers/filesystem.lua") -- corresponds to fs = require("filesystem")
+    package.preload.filesystem = fs
 end
 
 
@@ -66,29 +72,78 @@ function dofile(path, ...)
     return loadfile(path)(...)
 end
 
-
--- require should be a user thing, the kernel should not use that
-function require(moduleName, privileged)
-    assert(moduleName and #moduleName > 0, "module name must be a nonempty string")
-    assert(#string.split(moduleName, "/"), "module name cannot contain slashes")
-
-    print()
-
-    local rv = nil
-    local existing = package.loaded[moduleName]
-    if existing ~= nil then return existing end
-    for _, p in ipairs(string.split(package.path, ";")) do
-        local path = string.replace(p, "?", moduleName)
-        assert(privileged or not path:startsWith("/sys/"))
-        if fs:fileExists(path) then
-            rv = dofile(path)
-            package.loaded[moduleName] = rv
-            break
+function package.searchpath(name, path, sep, rep)
+    local conf = string.split(package.config, "\n")
+    assert(type(name) == "string", "bad argument #1 to 'searchpath' (string expected, got "..type(name)..")")
+    assert(type(path) == "string", "bad argument #2 to 'searchpath' (string expected, got "..type(path)..")")
+    if sep == nil then
+        sep = "."
+    end
+    assert(type(sep) == "string", "bad argument #3 to 'searchpath' (string expected, got "..type(sep)..")")
+    if rep == nil then
+        rep = conf[2]
+    end
+    assert(type(rep) == "string", "bad argument #4 to 'searchpath' (string expected, got "..type(rep)..")")
+    local substitutionPoint = conf[3]
+    name:replace(sep, rep)
+    local tried = {}
+    for _, template in ipairs(path:split(rep)) do
+        if template ~= "" then
+            local attempt = template:replace(substitutionPoint, name)
+            if fs:fileExists(attempt) then
+                return attempt
+            end
+            tried:insert(attempt)
         end
     end
-    if rv then return rv end
-    error("module '" .. tostring(moduleName) .. "' could not be found in package.path")
+    return nil, tried
 end
+
+package.searchers = {
+    function(moduleName, usrEnv)
+        return usrEnv.package.preload[moduleName]
+    end,
+    function(moduleName, usrEnv)
+        local target = usrEnv.package.searchpath(moduleName, usrEnv.package.path)
+        if target == nil then
+            return
+        end
+        local function loader(moduleName, fileName, privileged, usrEnv)
+            print(package.preload.fs)
+            local fs = assert(usrEnv.package.loaded.filesystem or usrEnv.package.preload.filesystem,
+                    "require requires access to the file system through package.loaded or package.preload")
+            assert(privileged or not fileName:startsWith("/sys/"))
+            return load(fs:readAllText(fileName), moduleName, "t", usrEnv)()
+        end
+        return loader, target
+    end,
+}
+
+function require(modname, privileged, usrEnv)
+    if usrEnv == nil then
+        usrEnv = _ENV
+    end
+    local pkg = usrEnv.package.loaded[modname]
+    if pkg ~= nil then
+        return pkg
+    end
+    for i = 1, #usrEnv.package.searchers do
+        local loader, ldrData = usrEnv.package.searchers[i](modname, usrEnv)
+        if loader ~= nil then
+            pkg = loader(modname, ldrData, privileged, usrEnv)
+            print("loaded", modname, pkg)
+            if pkg == nil then
+                usrEnv.package.loaded[modname] = true
+                return true
+            else
+                usrEnv.package.loaded[modname] = pkg
+                return pkg
+            end
+        end
+    end
+    error("could not find module " .. modname)
+end
+
 fs:init(bootDrive)
 -- filesystem and require done
 
