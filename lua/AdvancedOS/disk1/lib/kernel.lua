@@ -72,7 +72,7 @@ function kernel:waitForProcessExit(processHandle)
     --print("waiting for ",processHandle.description ," to finish")
     while processHandle.state ~= PROCESS_RUNSTATE.dead do
         --print("sleep begun", processHandle.state)
-        sleep(0.1)
+        sleep(0.05)
     end
     return processHandle.endedSuccessfully
 end
