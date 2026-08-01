@@ -33,7 +33,7 @@ local function textPasted(str)
 end
 
 local keepRunning = true
-kernel:registerEventCallback("keyTyped", function(...)
+kernel:registerEventCallback("charTyped", function(...)
     if not keepRunning then end -- if already pasting something
     if (select(2,...)) == '\n' then keepRunning = false end
 end)

@@ -266,7 +266,7 @@ end
 
 
 -- register handlers
-kernel:registerEventCallback("keyTyped", function(...)
+kernel:registerEventCallback("charTyped", function(...)
     charTyped(select(2, ...))
 end)
 
@@ -276,7 +276,7 @@ end)
 
 --[[
 kernel:registerEventCallback("textPasted", function(...)
-    ---if keyTyped(select(2,...)) then keepRunning = false end
+    ---if charTyped(select(2,...)) then keepRunning = false end
 end)
 ]]
 

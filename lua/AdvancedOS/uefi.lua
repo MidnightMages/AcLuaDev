@@ -173,7 +173,7 @@ else
         printInline("enter boot medium id: ") -- only single char allowed
         while true do
             local nextEvent = computer:getMachineEvent()
-            if nextEvent[1] == "keyTyped" then
+            if nextEvent[1] == "charTyped" then
                 local requested = nextEvent[2]
                 print(requested)
                 if bootables[requested] ~= nil then

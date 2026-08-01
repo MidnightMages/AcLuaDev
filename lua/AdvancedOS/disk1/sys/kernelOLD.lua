@@ -34,7 +34,7 @@ local eventQueue = {}
     if event ~= nil then        
         if event == "shutdown" then
 
-        elseif event == "keyTyped" then
+        elseif event == "charTyped" then
             if keyTyped(a1) then break end
         end
     end

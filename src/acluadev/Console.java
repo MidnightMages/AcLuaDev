@@ -23,7 +23,7 @@ import static javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS;
 
 public class Console implements KeyListener, MouseListener {
     public final JTextPane textPane;
-    public Consumer<KeyEvent> onKeyTyped = null;
+    public Consumer<KeyEvent> onCharTyped = null;
     public Consumer<KeyEvent> onKeyPressed = null;
     public Consumer<KeyEvent> onKeyReleased = null;
     public Consumer<String> onTextPasted = null;
@@ -143,8 +143,8 @@ public class Console implements KeyListener, MouseListener {
 
     @Override
     public void keyTyped(KeyEvent e) {
-        if (this.onKeyTyped != null && !e.isAltDown() && !e.isControlDown())
-            this.onKeyTyped.accept(e);
+        if (this.onCharTyped != null && !e.isAltDown() && !e.isControlDown())
+            this.onCharTyped.accept(e);
     }
 
     @Override

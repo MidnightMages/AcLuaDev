@@ -19,7 +19,7 @@ public class ScreenBlockEntity {
         this.vm = vm;
         console.onKeyPressed = this::addKeyPressed;
         console.onKeyReleased = this::addKeyReleased;
-        console.onKeyTyped = this::addKeyTyped;
+        console.onCharTyped = this::addCharTyped;
         console.onTextPasted = this::addTextPasted;
     }
 
@@ -154,8 +154,8 @@ public class ScreenBlockEntity {
         vm.triggerMachineEvent("keyReleased", translateKeysToMinecraftFormat(keyEvent));
     }
 
-    public void addKeyTyped(KeyEvent keyEvent) {
-        vm.triggerMachineEvent ("keyTyped", LuaObject.of(Character.toString(keyEvent.getKeyChar())));
+    public void addCharTyped(KeyEvent keyEvent) {
+        vm.triggerMachineEvent ("charTyped", LuaObject.of(Character.toString(keyEvent.getKeyChar())));
     }
 
     public void addTextPasted(String p) {
