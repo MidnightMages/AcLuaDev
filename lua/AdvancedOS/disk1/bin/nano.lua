@@ -18,26 +18,10 @@ local fs = require "filesystem"
 local kernel = require "kernel"
 local insert = table.insert
 
-local debugPrints = {}
-local function print(...)
-    debugPrints[#debugPrints + 1] = table.pack(...)
-end
-
 
 -- try loading the file
-local workingDir = kernel:getCurrentProcess().currentWorkingDirectory
-local function tryResolveFileName(filename)
-    if string.startsWith(filename, "/") then
-        return filename
-    elseif string.startsWith(filename, "./") then
-        return workingDir .. string.sub(filename, 3)
-    else
-        return workingDir .. filename
-    end
-end
 local data = {}
 if filename ~= nil then
-    filename = tryResolveFileName(filename)
     if fs:fileExists(filename) then
         data = string.split(fs:readAllText(filename), "\n")
         -- normalize line endings from possibly \r\n to \n
@@ -49,6 +33,18 @@ if filename ~= nil then
         end
     end
 end
+if not filename then
+    if not fs:fileExists(DEFAULT_NAME) then
+        filename = DEFAULT_NAME
+    else
+        local i = 1
+        while fs:fileExists(string.format("unnamed_%d.txt", i)) do
+            i = i + 1
+        end
+        filename = string.format("unnamed_%d.txt", i)
+    end
+end
+filename = filename or DEFAULT_NAME
 if #data == 0 then
     insert(data, "")
 end
@@ -60,32 +56,42 @@ local buffer = kernel:newTextBuffer()
 
 -- helpers
 local function padRight(str, len, filler)
+    if #str >= len then
+        return str
+    end
     filler = filler or " "
     local res = str .. string.rep(filler, math.max(0, (len - #str) // #filler))
     return #res >= len and res or res .. string.sub(filler, 1, len - #res)
 end
 local function padLeft(str, len, filler)
+    if #str >= len then
+        return str
+    end
     filler = filler or " "
     local res = string.rep(filler, math.max(0, (len - #str) // #filler)) .. str
     return #res >= len and res or string.sub(filler, 1, len - #res) .. res
 end
 
+
+
+-- edit mode UI
 -- set up screen
 local WIDTH <const> = buffer.width
 local HEIGHT <const> = buffer.height
 local VISIBLE_LINES <const> = HEIGHT - 3
-local previousScreen = buffer:getTextAsString()
 buffer:pasteText(0, 0, "FILL_CLIP_CLEAR", string.rep("\n", HEIGHT))
 -- state
 local running = true
 local scrollPos = 1
 local showLineNums = true
+local mode = "edit"
+local hasUnsavedChanges = false
 -- caret
 local cy = 1
 local cx = 1
 local hiddenByCaret = nil
 local function toScreenPos(x, y)
-    return math.min(x + (showLineNums and #tostring(#data) + 1 or 0), WIDTH) - 1, scrollPos - 1 + y
+    return math.min(x + (showLineNums and #tostring(#data) + 1 or 0), WIDTH) - 1, y - scrollPos + 1
 end
 local function clearCaret()
     if hiddenByCaret then
@@ -95,18 +101,27 @@ local function clearCaret()
         hiddenByCaret = nil
     end
 end
+
+
+
+-- editing UI
 -- top line
-local shortFileName = filename == nil and DEFAULT_NAME
+local shortFileName = filename
     or #filename <= 32 and filename
     or string.sub(filename, 1, 32)
-shortFileName = filename or DEFAULT_NAME
-buffer:pasteText(0, 0, "STOP", padRight(
-    string.format("███ AdvancedOS NANO ███ %s ███", shortFileName), WIDTH, "█"))
+local function writeTopLine()
+    buffer:pasteText(0, 0, "STOP", padRight(
+        string.format("███ AdvancedOS NANO ███ %s ███", shortFileName), WIDTH, "█"))
+end
+writeTopLine()
 -- bottom line
-buffer:pasteText(0, HEIGHT - 1, "^O Write Out    ^X Exit         ^L Line Numbers ")
+local function writeBottomLine()
+    buffer:pasteText(0, HEIGHT - 1, padRight("^O Write Out    ^X Exit         ^L Line Nums    ", WIDTH))
+end
+writeBottomLine()
 local function updateLineCnt()
     buffer:pasteText(0, HEIGHT - 2, "STOP_CLEAR", padRight(
-        string.format("███ [ the file has %d lines ] ", #data),
+        string.format("███ [ editing a file with %d lines ] ", #data),
         WIDTH, "█"))
 end
 updateLineCnt()
@@ -115,17 +130,19 @@ local function drawLines()
     -- move screen to caret
     -- TODO handle offscreen in x
     local cdif = cy - scrollPos
-    if cdif > VISIBLE_LINES then
-        scrollPos = scrollPos + (cdif - VISIBLE_LINES)
+    if cdif >= VISIBLE_LINES then
+        scrollPos = scrollPos + (cdif - VISIBLE_LINES) + 1
     elseif cdif < 0 then
-        scrollPos = scrollPos + (-cdif - VISIBLE_LINES)
+        scrollPos = scrollPos + cdif
     end
     -- print the lines
-    local lines = table.move(data, scrollPos, VISIBLE_LINES, 1, {})
+    local lines = table.move(data, scrollPos, scrollPos - 1 + VISIBLE_LINES, 1, {})
     if showLineNums then
         local maxlen = #tostring(#data)
         for i = 1, #lines do
-            local l = padLeft(tostring(i), maxlen) .. " " .. lines[i]
+            local l = padLeft(tostring(scrollPos - 1 + i), maxlen)
+            l = l .. " "
+            l = l .. lines[i]
             l = #l <= WIDTH and l or string.sub(i, #l - 1) .. ">"
             lines[i] = l
         end
@@ -136,14 +153,42 @@ local function drawLines()
         end
     end
     for i = #lines + 1, VISIBLE_LINES do
-        lines[#lines + 1] = ""
+        lines[i] = ""
     end
+    lines[#lines] = padRight(lines[#lines], WIDTH, " ") -- overwrite the rest of the last line
     buffer:pasteText(0, 1, "FILL_CLIP_CLEAR", table.concat(lines, "\n"))
 end
 drawLines()
 
 
--- handlers
+
+-- write mode UI
+local function wTopLine()
+    buffer:pasteText(0, HEIGHT - 2, "STOP_CLEAR",
+        padRight("███ [ choosing a filename to save the file ] ", WIDTH, "█"))
+end
+
+local function wErrorLine(err)
+    buffer:pasteText(0, HEIGHT - 2, "STOP_CLEAR",
+        padRight(string.format("███ [ error '%s', choosing filename ] ", err), WIDTH, "█"))
+end
+
+local function wBottomLine()
+    buffer:pasteText(0, HEIGHT - 1, "STOP_CLEAR",
+        padRight("^C: return to editing, ENTER: save > " .. filename .. "_", WIDTH))
+end
+
+
+
+-- exiting mode UI
+local function exitingBottomLine()
+    buffer:pasteText(0, HEIGHT - 1, "STOP_CLEAR",
+        padRight("UNSAVED CHANGES!!!   ^C: return to editing, ENTER: exit anyways", WIDTH))
+end
+
+
+
+-- edit mode handlers
 local function charTyped(char)
     clearCaret()
     local l = data[cy]
@@ -203,6 +248,7 @@ local function charTyped(char)
         cx = cx + 1
     end
     drawLines()
+    hasUnsavedChanges = true
 end
 
 local function keyPressed(stRep, keyCode, scanCode, mods)
@@ -245,14 +291,24 @@ local function keyPressed(stRep, keyCode, scanCode, mods)
         drawLines()
     elseif keyCode == 0x4F and mods == 2 then -- ^O
         -- save
-        -- TODO handle missing file name
+        -- enter write mode
+        mode = "write"
+        wTopLine()
+        wBottomLine()
+        return
     elseif keyCode == 0x58 and mods == 2 then -- ^X
         -- quit
-        -- TODO handle unsaved changes
-        running = false
+        mode = "exiting"
+        if hasUnsavedChanges then
+            exitingBottomLine()
+        else
+            -- clean exit
+            running = false
+        end
+        return
     end
     local cdif = cy - scrollPos
-    if cdif > VISIBLE_LINES or cdif < 0 then
+    if cdif >= VISIBLE_LINES or cdif < 0 then
         -- caret is off screen in y
         -- TODO handle offscreen in x
         drawLines()
@@ -265,13 +321,85 @@ end
 
 
 
+-- write mode (choosing filename) handlers
+local function typedInWriteMode(char)
+    if char == "\n" then
+        -- try writing file
+        -- local ok, err = pcall(fs.writeAllText, fs, filename, table.concat(data, "\n"))
+        ok = true
+        fs:writeAllText(filename, table.concat(data, "\n"))
+        if ok then
+            -- return to edit mode
+            mode = "edit"
+            writeTopLine()
+            updateLineCnt()
+            writeBottomLine()
+            hasUnsavedChanges = false
+        else
+            wErrorLine(err)
+        end
+    elseif char == "\b" then
+        if #filename > 0 then
+            filename = string.sub(filename, 1, #filename - 1)
+        end
+        wBottomLine()
+    else
+        filename = filename .. char
+        wBottomLine()
+    end
+end
+
+local function pressedInWriteMode(stRep, keyCode, scanCode, mods)
+    if keyCode == 0x43 and mods == 2 then -- ^C
+        -- return to edit mode
+        mode = "edit"
+        writeTopLine()
+        updateLineCnt()
+        writeBottomLine()
+    end
+end
+
+
+
+-- exiting mode handlers
+local function pressedInExiting(stRep, keyCode, scanCode, mods)
+    if keyCode == 0x43 and mods == 2 then -- ^C
+        -- return to edit mode
+        mode = "edit"
+        writeTopLine()
+        updateLineCnt()
+        writeBottomLine()
+    elseif stRep == "\n" then -- ENTER
+        -- exit anyways
+        running = false
+    end
+end
+
+
+
 -- register handlers
 kernel:registerEventCallback("charTyped", function(...)
-    charTyped(select(2, ...))
+    if mode == "edit" then
+        charTyped(select(2, ...))
+    elseif mode == "write" then
+        typedInWriteMode(select(2, ...))
+    elseif mode == "exiting" then
+        -- do nothing
+    else
+        error("charTyped, unknown mode " .. mode)
+    end
 end)
 
 kernel:registerEventCallback("keyPressed", function(...)
-    keyPressed(select(2, ...))
+    if mode == "edit" then
+        keyPressed(select(2, ...))
+    elseif mode == "write" then
+        pressedInWriteMode(select(2, ...))
+    elseif mode == "exiting" then
+        pressedInExiting(select(2, ...))
+    else
+        error("keyPressed, unknown mode " .. mode)
+    end
 end)
 
 --[[
@@ -296,8 +424,4 @@ while running do
         hiddenByCaret = buffer:getText(x, y)
         buffer:set(x, y, "_", nil, nil)
     end
-end
-
-for _, dbg in ipairs(debugPrints) do
-    _ENV.print("[nano DEBUG]", table.unpack(dbg))
 end

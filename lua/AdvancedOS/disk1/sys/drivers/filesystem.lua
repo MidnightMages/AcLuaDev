@@ -5,6 +5,10 @@ local mounts = {}
 
 local function normalizePath(path)
     -- TODO add process's working directory if the path odes not start with /
+    if not string.startsWith(path, "/") then
+        -- prepend current working dir
+        path = kutils.getCurrentProcess().currentWorkingDirectory .. path
+    end
     local segments = string.split(path,"/")
     --print("splitres:",#segments, segments[1]..";", segments[2]..";")
     local skipCnt = 0
@@ -61,7 +65,6 @@ local function getMountPoint(path)
 end
 
 local function findDriveAndDrivePath(filePath)
-    assert(string.startsWith(filePath,"/"))
     local p = normalizePath(filePath)
     local drive, prefix = getMountPoint(p)
     local drivePath = "/"..string.sub(p, #prefix+1)
