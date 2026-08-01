@@ -18,7 +18,7 @@ local function executeStatement(statement)
     if statement == "exit" then return true end
     local splitted = string.split(statement, " ")
     local executablePath = splitted[1]
-    local argString = table.concat(splitted, " ", 2)
+    local argString = #splitted > 0 and table.move(splitted, 2, #splitted, 1, {}) or {}
 
     if executablePath == "cd" then
         local firstChar = argString:sub(1,1)

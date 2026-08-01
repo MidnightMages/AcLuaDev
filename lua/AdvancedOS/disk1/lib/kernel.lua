@@ -56,11 +56,11 @@ end
 
 ---@param luaPath string
 ---@param args {}
-function kernel:startProcessFromPath(luaPath, ...)
+function kernel:startProcessFromPath(luaPath, args)
     ---@type FullProcessStartInfo
     local startInfo = {
         mainFunc = assert(loadfile(luaPath)),
-        args = table.pack(...),
+        args = args,
         currentWorkingDirectory = self:getCurrentProcess().currentWorkingDirectory,
         description = tostring(luaPath)
     }
@@ -119,14 +119,20 @@ end
 ---@param newCwd string
 function kernel:setCurrentWorkingDirectory(newCwd)
     newCwd = newCwd or "/"
-    if newCwd:sub(1,1) ~= "/" then
+    if newCwd:sub(1, 1) ~= "/" then
         newCwd = "/" .. newCwd
     end
-    if newCwd:sub(#newCwd,#newCwd) ~= "/" then
+    if newCwd:sub(#newCwd, #newCwd) ~= "/" then
         newCwd = newCwd .. "/"
     end
 
     kernel:getCurrentProcess().cwd = self:normalizePath(newCwd)
+end
+
+function kernel:getCurTextBuffer()
+    -- TODO do not give up control over the UEFI text buffer and user one buffer per process instead
+    -- maybe allow the process to maintain and show different text buffers
+    return _ENV.uefiTextBuffer -- this is set in uefi.lua
 end
 
 return kernel

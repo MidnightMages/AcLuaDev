@@ -144,7 +144,7 @@ local function runTasks()
                     --print("resuming with args: ", currThreadToRun.coroutine_resumptionArgs)
                     local result = table.pack(coroutine.resume(currThreadToRun.coroutine, table.unpack(currThreadToRun.coroutine_resumptionArgs or {})))
                     if type(result[3]) == "string" and result[3] ~= "sleep" then
-                        print("PACKED: ", table.unpack(result))
+                        --print("PACKED: ", table.unpack(result))
                     end
                     -- handle syscalls / result
                     if not result[1] then -- if error
@@ -244,6 +244,7 @@ local function readonlyView(x)
 end]]
 
 syscalls["getCurrentProcess"] = function()
+    assert(currentlyRunningProcess)
     return (currentlyRunningProcess)
 end
 

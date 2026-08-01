@@ -143,7 +143,7 @@ public class Console implements KeyListener, MouseListener {
 
     @Override
     public void keyTyped(KeyEvent e) {
-        if (this.onKeyTyped != null)
+        if (this.onKeyTyped != null && !e.isAltDown() && !e.isControlDown())
             this.onKeyTyped.accept(e);
     }
 
