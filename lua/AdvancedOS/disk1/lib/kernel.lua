@@ -126,7 +126,7 @@ function kernel:setCurrentWorkingDirectory(newCwd)
         newCwd = newCwd .. "/"
     end
 
-    kernel:getCurrentProcess().cwd = self:normalizePath(newCwd)
+    kernel:getCurrentProcess().currentWorkingDirectory = self:normalizePath(newCwd)
 end
 
 function kernel:getCurTextBuffer()

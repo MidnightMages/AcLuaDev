@@ -21,10 +21,20 @@ local function executeStatement(statement)
     local argString = #splitted > 0 and table.move(splitted, 2, #splitted, 1, {}) or {}
 
     if executablePath == "cd" then
-        local firstChar = argString:sub(1,1)
-        local path = argString
+        local path = table.concat(argString, " ")        
+        if #path == 0 then
+            print("ERROR: cd requires an argument being the path to cd to.")
+            return
+        end
+        local firstChar = path:sub(1,1)
         if firstChar ~= "~" and firstChar ~= "/" then -- if relative
             path = kernel:getCurrentWorkingDirectory()..path
+            print("concatted with cwd into ", path)
+        end
+        path = kernel:normalizePath(path)
+        if not fs:directoryExists(path) then
+            print("ERROR: cannot cd to directory "..tostring(path).. " as it does not exist.")
+            return
         end
         kernel:setCurrentWorkingDirectory(path)
     else
