@@ -8,8 +8,26 @@ function kutils.registerPermission(name)
 end
 
 function kutils.assertPermission(name)
-    assert(registeredPermissions[name] ~= nil, "permission "..tostring(name).." has not been registered!")
+    assert(registeredPermissions[name] ~= nil, "permission " .. tostring(name) .. " has not been registered!")
     return (currentlyRunningProcess == nil) --or (currentlyRunningProcess.euid == 0)
+end
+
+function kutils.getCurrentProcess()
+    return currentlyRunningProcess
+end
+
+function kutils.resetToParent(screenIdx, screen, p, gpu)
+    gpu = gpu or components:getFirst("gpu")
+    if p == nil then
+        gpu:assignBuffer(_ENV.uefiTextBuffer, screen)
+        return
+    end
+    local activeBuf = kutils.unwrapObject(p).activeTextBuffers[screenIdx]
+    if activeBuf ~= nil then
+        gpu:assignBuffer(activeBuf, screen)
+    else
+        kutils.resetToParent(screenIdx, screen, p.parentProcess)
+    end
 end
 
 local syscalls = {}
@@ -203,6 +221,23 @@ local function runTasks()
             local procObj = runningProcesses[diedPid_aka_i]
             procObj.endedSuccessfully = procObj.endedSuccessfully ~= false -- we have set this to false already if the process errored. So if it was not set, all was well
             procObj.state = PROCESS_RUNSTATE.dead
+            -- reset used screens
+            local k = 1
+            for type, component in components:list() do
+                if type == "screen" then
+                    if procObj.activeTextBuffers[k] ~= nil then
+                        kutils.resetToParent(k, component, procObj.parentProcess, gpu)
+                        procObj.activeTextBuffers[k] = nil
+                    end
+                    procObj[k] = nil
+                    k = k + 1
+                end
+            end
+            for _, buffer in ipairs(procObj.textBuffers) do
+                if buffer.isAlive then
+                    buffer:free()
+                end
+            end
             print("marked process '"..tostring(procObj.description).."' as dead")
             table.remove(runningProcesses, diedPid_aka_i)
         end
@@ -250,6 +285,83 @@ end
 
 syscalls["registerProcessEventCallback"] = function(eventName, callback)
     scheduler:registerEventCallback(eventName, callback)
+end
+
+function syscalls.allocTextBuffer(proc, width, height)
+    width = width or 110 -- default width
+    height = height or 44 -- default height
+    local gpu = components:getFirst("gpu")
+    local ok, buffer = pcall(function() return gpu:newBuffer(width, height) end)
+    if ok then
+        local procWithPrivate = kutils.unwrapObject(proc)
+        procWithPrivate.textBuffers[buffer] = true
+        return buffer
+    else
+        return nil, buffer -- return nil and the error message
+    end
+end
+
+function syscalls.showTextBuffer(proc, textBuffer, ...)
+    local procWithPrivate = kutils.unwrapObject(proc)
+    if textBuffer ~= nil and not procWithPrivate.textBuffers[textBuffer] then
+        error("this process does not own the given text buffer")
+    end
+    local gpu = components:getFirst("gpu")
+    if select("#", ...) then
+        -- all screens are affected
+        if textBuffer == nil then
+            -- reset all screens to parent
+            local i = 1
+            for type, component in components:list() do
+                if type == "screen" then
+                    kutils.resetToParent(i, component, procWithPrivate.parentProcess, gpu)
+                    procWithPrivate.activeTextBuffers[i] = nil
+                    i = i + 1
+                end
+            end
+        else
+            -- set all the screens
+            local i = 1
+            for type, component in components:list() do
+                if type == "screen" then
+                    gpu:assignBuffer(textBuffer, component)
+                    procWithPrivate.activeTextBuffers[i] = textBuffer
+                    i = i + 1
+                end
+            end
+        end
+    else
+        -- only some screens are affected
+        local restructured = {}
+        for _, target in ipairs(table.pack(...)) do
+            restructured[target] = true
+        end
+        if textBuffer == nil then
+            -- reset only some screens to parent
+            local i = 1
+            for type, component in components:list() do
+                if type == "screen" then
+                    if restructured[i] then
+                        kutils.resetToParent(i, component, procWithPrivate.parentProcess, gpu)
+                        procWithPrivate.activeTextBuffers[i] = nil
+                    end
+                    i = i + 1
+                end
+            end
+        else
+            -- set only some screens
+            local i = 1
+            for type, component in components:list() do
+                if type == "screen" then
+                    if restructured[i] then
+                        gpu:assignBuffer(textBuffer, component)
+                        procWithPrivate.activeTextBuffers[i] = textBuffer
+                    end
+                    i = i + 1
+                end
+            end
+        end
+    end
 end
 
 syscalls.spawnProcess(initProcessStartInfo)

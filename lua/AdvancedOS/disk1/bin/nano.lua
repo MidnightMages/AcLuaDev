@@ -52,7 +52,10 @@ end
 if #data == 0 then
     insert(data, "")
 end
-local buffer = kernel:getCurTextBuffer()
+
+
+-- UI setup
+local buffer = kernel:newTextBuffer()
 
 
 -- helpers
@@ -138,9 +141,6 @@ local function drawLines()
     buffer:pasteText(0, 1, "FILL_CLIP_CLEAR", table.concat(lines, "\n"))
 end
 drawLines()
-
-
-
 
 
 -- handlers
@@ -280,6 +280,10 @@ kernel:registerEventCallback("textPasted", function(...)
 end)
 ]]
 
+
+-- main thread
+kernel:showTextBuffer(buffer)
+
 while running do
     sleep(0.5)
     local x, y = toScreenPos(cx, cy)
@@ -293,9 +297,6 @@ while running do
         buffer:set(x, y, "_", nil, nil)
     end
 end
-
---exit
-buffer:pasteText(0, 0, "FILL_CLIP_CLEAR", previousScreen)
 
 for _, dbg in ipairs(debugPrints) do
     _ENV.print("[nano DEBUG]", table.unpack(dbg))

@@ -1,7 +1,7 @@
 --[[
 
 ]]
-
+local driverAccessibleData = ...
 
 local assertPermission = kutils.assertPermission
 local wrap = kutils.wrapObjectWithAccess
@@ -18,6 +18,7 @@ local PROCESS <const> = {
 }
 
 local ALLOWED_READS = {
+    parentProcess = true,
     id = true,
     description = true,
     currentWorkingDirectory = true,
@@ -49,10 +50,13 @@ local ALLOWED_READS = {
 ---@field endedSuccessfully boolean
 
 ---@class ProcessWithPrivateFields : Process
+---@field parentProc Process
 ---@field unblockedThreads OsThread[]
 ---@field blockedThreads OsThread[]
 ---@field createThread function
 ---@field nextThreadId integer
+---@field textBuffers TextBuffer[]
+---@field activeTextBuffers TextBuffer[]
 
 ---@enum PROCESS_RUNSTATE
 PROCESS_RUNSTATE = {
@@ -64,25 +68,36 @@ PROCESS_RUNSTATE = {
 
 ---@param processStartInfo FullProcessStartInfo
 ---@return ProcessWithPrivateFields
-function PROCESS.new(processStartInfo)
+function PROCESS.new(processStartInfo, parentProcess)
     PROCESS.curId = PROCESS.curId + 1
 
     assert(getmetatable(processStartInfo) == nil, "processStartInfo cannot have a metatable attached")
     local desc = processStartInfo.description
     local cwd = processStartInfo.currentWorkingDirectory
-    local args = {table.unpack(processStartInfo.args)}
+    local args = { table.unpack(processStartInfo.args) }
 
     local proc = setmetatable({
         -- public
+        parentProcess = parentProcess,
         description = desc,
         currentWorkingDirectory = cwd,
 
         id = PROCESS.curId,
         -- private
-        unblockedThreads = {}, -- all os-threads that are currently resumable
-        blockedThreads = {}, -- all os-threads that are currently not resumable
+        textBuffers = {},       -- text buffers associated with this process
+        activeTextBuffers = {}, -- no active buffer for a given screen means it just shows the parent process
+        unblockedThreads = {},  -- all os-threads that are currently resumable
+        blockedThreads = {},    -- all os-threads that are currently not resumable
         nextThreadId = 0,
-        state = PROCESS_RUNSTATE.running
+        state = PROCESS_RUNSTATE.running,
+        freeAllBuffers = function(self)
+            for i = #self.textBuffers, 1, -1 do
+                local b = textBuffers[i]
+                if b.isAlive then
+                    b:free()
+                end
+            end
+        end
     }, {
         __index = PROCESS
     })
@@ -92,13 +107,13 @@ end
 
 function PROCESS:createThread(funcToExecute, packedArgs)
     local tid = self.nextThreadId
-    self.nextThreadId = tid+1
+    self.nextThreadId = tid + 1
 
     ---@type OsThread
     local newThread = {
         coroutine = coroutine.create(function()
-        funcToExecute(table.unpack(packedArgs))
-    end),
+            funcToExecute(table.unpack(packedArgs))
+        end),
         id = tid,
         pausedUntil = -1,
         queuedEvents = {}
@@ -114,7 +129,7 @@ local syscalls = {}
 
 ---@param processStartInfo FullProcessStartInfo
 function syscalls.spawnProcess(processStartInfo) -- TODO chose isolation level and thus prototype-_ENV, i.e 0 = kernel, 1 = driver, 2 = user?
-    local proc = PROCESS.new(processStartInfo)
+    local proc = PROCESS.new(processStartInfo, kutils.getCurrentProcess())
     scheduler:enqueue(proc)
     print("created", proc.description)
     local rv = wrap(proc, ALLOWED_READS)

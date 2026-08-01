@@ -79,7 +79,7 @@ end
 
 ---@returns string
 function kernel:getCurrentWorkingDirectory()
-    return kernel:getCurrentProcess().currentWorkingDirectory
+    return self:getCurrentProcess().currentWorkingDirectory
 end
 
 ---@param s string
@@ -126,7 +126,23 @@ function kernel:setCurrentWorkingDirectory(newCwd)
         newCwd = newCwd .. "/"
     end
 
-    kernel:getCurrentProcess().currentWorkingDirectory = self:normalizePath(newCwd)
+    self:getCurrentProcess().currentWorkingDirectory = self:normalizePath(newCwd)
+end
+
+--- Allocates a new TextBuffer for the current process
+--- @param width? integer
+--- @param height? integer
+function kernel:newTextBuffer(width, height)
+    return self:invokeSyscall("allocTextBuffer", self:getCurrentProcess(), width, height)
+end
+
+--- If the given process is not a foreground process and a non-nil buffer is passed, this process
+--- is pushed into the foreground. If the given process already shows a buffer, it is replaced.
+--- @param textBuffer TextBuffer|nil the buffer to be shown or nil if no special buffer
+--- should be shown for this process
+--- @param ... integer screens to show the buffer on. All if left empty.
+function kernel:showTextBuffer(textBuffer, ...)
+    return self:invokeSyscall("showTextBuffer", self:getCurrentProcess(), textBuffer, ...)
 end
 
 function kernel:getCurTextBuffer()
