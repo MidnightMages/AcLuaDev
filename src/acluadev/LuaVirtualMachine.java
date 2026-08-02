@@ -1,16 +1,13 @@
 package acluadev;
 
-import acluadev.fs.SandboxedFs;
+import acluadev.fs.ManagedMassStorageUD;
 import acluadev.misc.*;
 import dev.asdf00.jluavm.LuaVM;
-import dev.asdf00.jluavm.api.functions.ApiFunctionRegistry;
 import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
 import dev.asdf00.jluavm.api.functions.MixedStateFunctionRegistry;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -35,7 +32,7 @@ public class LuaVirtualMachine {
 
         String bootFile; // read uefi file
         try {
-            bootFile = String.join("\n", Files.readAllLines(luaRootDir.resolve("uefi.lua")));
+            bootFile = Files.readString(luaRootDir.resolve("uefi.lua"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -47,16 +44,14 @@ public class LuaVirtualMachine {
         // set up disk filesystems
         for (int i = 1; i <= 3; i++) {
             var dp = luaRootDir.resolve("disk" + i);
-            var fs = new SandboxedFs(dp, !cfg.allowPhysicalFilesystemWrites());
             try {
                 if (!Files.isDirectory(dp))
                     Files.createDirectory(dp);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            fs.init(dp);
 
-            var ud = new ManagedMassStorageUD("disk",i ,fs);
+            var ud = new ManagedMassStorageUD("disk", 50 * 1024 * 1024, i, dp, cfg);
             componentReg.addComponentInitAndNotify(ud);
         }
         componentReg.addComponentInitAndNotify(luaComputer);

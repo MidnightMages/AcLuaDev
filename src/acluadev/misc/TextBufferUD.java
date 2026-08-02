@@ -1,10 +1,7 @@
 package acluadev.misc;
 
 import acluadev.LuaVirtualMachine;
-import dev.asdf00.jluavm.api.userdata.LuaCallable;
-import dev.asdf00.jluavm.api.userdata.LuaDeserializer;
-import dev.asdf00.jluavm.api.userdata.LuaExposed;
-import dev.asdf00.jluavm.api.userdata.LuaUserData;
+import dev.asdf00.jluavm.api.userdata.*;
 import dev.asdf00.jluavm.exceptions.LuaJavaError;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 import dev.asdf00.jluavm.runtime.utils.UDTranslators;
@@ -20,9 +17,10 @@ public class TextBufferUD implements LuaUserData {
     public int width;
     @LuaExposed(LuaExposed.Policy.READ)
     public int height;
+    @LuaExposed(LuaExposed.Policy.READ)
+    public boolean isAlive;
 
     private GpuUD gpuUD;
-    public boolean isFreed;
     private LuaObject luaSelf = null;
 
     /**
@@ -34,20 +32,21 @@ public class TextBufferUD implements LuaUserData {
     private int lStart;
 
     public TextBufferUD(int width, int height, GpuUD gpuUD) {
-        this(width, height, gpuUD, false, 0);
+        this(width, height, gpuUD, true, 0);
     }
 
-    private TextBufferUD(int width, int height, GpuUD gpuUD, boolean isFreed, int lStart) {
+    private TextBufferUD(int width, int height, GpuUD gpuUD, boolean isAlive, int lStart) {
         this.width = width;
         this.height = height;
         this.gpuUD = gpuUD;
-        this.isFreed = isFreed;
+        this.isAlive = isAlive;
         this.foregroundColor = new byte[width * height];
         this.backgroundColor = new byte[width * height];
         this.text = new char[width * height];
         this.lStart = lStart;
     }
 
+    @LuaCallable
     public String getTextAsString() {
         var guiTextSb = new StringBuilder();
         for (int line = 0; line < height; line++) {
@@ -63,7 +62,7 @@ public class TextBufferUD implements LuaUserData {
     @LuaCallable
     public void free() {
         gpuUD.onBufferFreed(this);
-        isFreed = true;
+        isAlive = false;
         // now we are safe to drop the memory backing this buffer.
         width = height = 0;
         backgroundColor = null;
@@ -143,18 +142,18 @@ public class TextBufferUD implements LuaUserData {
 
     @LuaCallable
     public LuaObject[] pasteText(int x, int y, PasteMode mode, String uText) {
-        luaGuarantee(x < width && x >= -width, "x out of bounds");
+        // we allow instant line spilling
+        luaGuarantee(x <= width && x >= -width, "x out of bounds");
         luaGuarantee(y < height && y >= -height, "y out of bounds");
         x = x < 0 ? width - x : x;
         y = y < 0 ? height - y : y;
 
         int printed = 0;
         while (printed < uText.length()) {
-
             // paste as much text into the current line as there is space in the buffer
             boolean endedOnNewLine = false;
             lineLoop:
-            while (printed < uText.length() && x < width) {
+            while (printed < uText.length() && x <= width) {
                 char toPrint = uText.charAt(printed++);
                 switch (toPrint) {
                     case '\n' -> {
@@ -171,18 +170,28 @@ public class TextBufferUD implements LuaUserData {
                         // carriage return jumps back to the start of the line
                         x = 0;
                     }
-                    case '\t' -> {
-                        text[rawCalcIdx(x++, y)] = ' ';
-                        while (x % 4 != 0 && x < width) {
-                            text[rawCalcIdx(x++, y)] = ' ';
-                        }
-                    }
                     case '\b' -> {
                         if (x > 0) {
                             text[rawCalcIdx(--x, y)] = '\0';
                         }
                     }
+                    case '\t' -> {
+                        // line is possibly full
+                        if (x == width) {
+                            printed--;
+                            break lineLoop;
+                        }
+                        text[rawCalcIdx(x++, y)] = ' ';
+                        while (x % 4 != 0 && x < width) {
+                            text[rawCalcIdx(x++, y)] = ' ';
+                        }
+                    }
                     default -> {
+                        // line is possibly full
+                        if (x == width) {
+                            printed--;
+                            break lineLoop;
+                        }
                         text[rawCalcIdx(x++, y)] = toPrint;
                     }
                 }
@@ -275,7 +284,7 @@ public class TextBufferUD implements LuaUserData {
                 .append(width)
                 .append(height)
                 .append(LuaObject.of(gpuUD).serialize(serialData, mappedObjs, additionalData))
-                .append(isFreed)
+                .append(isAlive)
                 // TODO append fg color
                 // TODO append bg color
                 .append(txtBytes.length)
@@ -308,12 +317,12 @@ public class TextBufferUD implements LuaUserData {
 
     @Override
     public boolean luaFieldGuard(LuaObject key, LuaObject value) {
-        return !isFreed;
+        return isAlive;
     }
 
     @Override
     public boolean luaCallGuard(String name, LuaObject[] arguments) {
-        return !isFreed;
+        return isAlive;
     }
 
     public Set<ScreenBlockEntity> getAssociatedScreens() {
