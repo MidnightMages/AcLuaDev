@@ -1,5 +1,5 @@
 --[[
-A little implementation of a text editor mimicing the gnu nano editor
+A little implementation of a text editor inspired by the gnu-nano editor
 ]]
 
 local DEFAULT_NAME <const> = "unnamed.txt"
@@ -13,6 +13,8 @@ if filename == "-h" or filename == "-?" then
       <filename>  the file to open (it does not need to exist)]])
     return
 end
+
+print("stating AdvancedOS NANO ...")
 
 local fs = require "filesystem"
 local kernel = require "kernel"
@@ -74,7 +76,6 @@ end
 
 
 
--- edit mode UI
 -- set up screen
 local WIDTH <const> = buffer.width
 local HEIGHT <const> = buffer.height
@@ -121,7 +122,7 @@ end
 writeBottomLine()
 local function updateLineCnt()
     buffer:pasteText(0, HEIGHT - 2, "STOP_CLEAR", padRight(
-        string.format("███ [ editing a file with %d lines ] ", #data),
+        string.format("███ [ editing a file with %d line%s ] ", #data, #data > 1 and "s" or ""),
         WIDTH, "█"))
 end
 updateLineCnt()
@@ -220,6 +221,7 @@ local function charTyped(char)
                 cy = cy - 1
                 l = data[cy] .. l
                 cx = #l + 2
+                updateLineCnt()
             end
         elseif cx == 2 then
             -- first char
@@ -316,7 +318,50 @@ local function keyPressed(stRep, keyCode, scanCode, mods)
 end
 
 local function textPasted(text)
-    -- TODO
+    local nuLines = string.split(text, "\n")
+    local len = #nuLines
+    local lastLineIdx = cy + len - 1
+    if cx <= 1 then
+        -- start of the line
+        for i = 1, len - 1 do
+            -- plain insert all lines but the last
+            table.insert(data, cy + i - 1, nuLines[i])
+        end
+        -- prepend the last line to the existing line
+        data[lastLineIdx] = nuLines[len] .. data[lastLineIdx]
+        -- set caret
+        cy = lastLineIdx
+        cx = #nuLines[len] + 1
+    elseif cx > #data[cy] then
+        -- end of the line
+        -- append first line of new data
+        data[cy] = data[cy] .. nuLines[1]
+        for i = 2, len do
+            -- plain insert the rest of the lines
+            table.insert(data, cy + i - 1, nuLines[i])
+        end
+        -- set caret
+        cy = lastLineIdx
+        cx = #data[lastLineIdx] + 1
+    else
+        -- middle of the line
+        local l = data[cy]
+        local left = string.sub(l, 1, cx - 1)
+        local right = string.sub(l, cx, #l)
+        -- ignore right for now and append to the the left part of the line
+        data[cy] = left .. nuLines[1]
+        for i = 2, len do
+            -- plain insert the rest of the lines
+            table.insert(data, cy + i - 1, nuLines[i])
+        end
+        -- fixup the last line by appending right
+        local nuCX = #data[lastLineIdx] + 1
+        data[lastLineIdx] = data[lastLineIdx] .. right
+        -- set caret
+        cy = lastLineIdx
+        cx = nuCX
+    end
+    drawLines()
 end
 
 
@@ -325,9 +370,7 @@ end
 local function typedInWriteMode(char)
     if char == "\n" then
         -- try writing file
-        -- local ok, err = pcall(fs.writeAllText, fs, filename, table.concat(data, "\n"))
-        ok = true
-        fs:writeAllText(filename, table.concat(data, "\n"))
+        local ok, err = pcall(fs.writeAllText, fs, filename, table.concat(data, "\n"))
         if ok then
             -- return to edit mode
             mode = "edit"
@@ -402,11 +445,17 @@ kernel:registerEventCallback("keyPressed", function(...)
     end
 end)
 
---[[
 kernel:registerEventCallback("textPasted", function(...)
-    ---if charTyped(select(2,...)) then keepRunning = false end
+    if mode == "edit" then
+        textPasted(select(2, ...))
+    elseif mode == "write" then
+        -- do nothing
+    elseif mode == "exiting" then
+        -- do nothing
+    else
+        error("textPasted, unknown mode " .. mode)
+    end
 end)
-]]
 
 
 -- main thread
