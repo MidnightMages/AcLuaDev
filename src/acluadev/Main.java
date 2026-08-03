@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.asdf00.jluavm.api.functions.ApiFunctionRegistry;
 import dev.asdf00.jluavm.api.functions.AtomicLuaFunction;
+import dev.asdf00.jluavm.internals.javac.DelayedJavaCompiler;
 import dev.asdf00.jluavm.runtime.types.LuaJavaApiFunction;
 import dev.asdf00.jluavm.runtime.types.LuaObject;
 
@@ -59,6 +60,8 @@ public class Main {
 
     @SuppressWarnings("BusyWait")
     public static void main(String[] args) throws IOException {
+        DelayedJavaCompiler.includeContainingJarDuringCompilation(Main.class);
+
         var projDir = System.getProperty("user.dir");
         var configPath = Path.of(projDir, "config.json");
         if (!Files.exists(configPath)) {
