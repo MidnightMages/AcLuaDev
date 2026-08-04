@@ -183,7 +183,7 @@ public class EphemeralFilesystemProxy {
             assert modifiedFileContents != null;
             assert createdDirectories != null;
             stream = Stream.concat(stream, Stream.concat(modifiedFileContents.keySet().stream(), createdDirectories.stream())
-                    .filter(x -> x.subpath(0, x.getNameCount() - 1).equals(p)));
+                    .filter(x -> x.resolve("..").normalize().equals(p)));
             stream = stream.filter(x -> !deletedFiles.contains(x) && !deletedDirectories.contains(x));
         }
         return stream;
